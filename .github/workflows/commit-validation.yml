@@ -22,17 +22,21 @@ jobs:
 
           while IFS= read -r msg; do
             if [[ -z "$msg" ]]; then
-              continue
+                continue
             fi
+            
+            # Verificar se é commit de merge PRIMEIRO
+            if [[ "$msg" == "Merge"* ]]; then
+                echo "Pulando commit de merge: $msg"
+                continue
+            fi
+            
+            # Depois validar o padrão
             if [[ ! "$msg" =~ $VALID_PATTERN ]]; then
-              echo "❌ Commit inválido: $msg"
-              FAILED=1
+                echo "Commit inválido: $msg"
+                FAILED=1
             else
-              echo "✅ $msg"
-            fi
-            if [[ "$commit" == "Merge"* ]]; then
-              echo "⏭️ Pulando commit de merge"
-              continue
+                echo "✅ $msg"
             fi
           done <<< "$COMMITS"
 
