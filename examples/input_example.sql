@@ -1,0 +1,31 @@
+CREATE OR REPLACE PROCEDURE PRC_ATUALIZA_ORDEM_PRODUCAO (
+    p_ordem_id IN NUMBER
+) IS
+    CURSOR c_itens IS
+        SELECT * FROM ITENS_ORDEM WHERE ORDEM_ID = p_ordem_id;
+
+    v_status VARCHAR2(20);
+BEGIN
+    SELECT STATUS INTO v_status
+    FROM ORDEM_PRODUCAO
+    WHERE ORDEM_ID = p_ordem_id;
+
+    IF v_status = 'ABERTA' THEN
+        FOR r_item IN c_itens LOOP
+            UPDATE ITENS_ORDEM
+            SET QUANTIDADE_PRODUZIDA = QUANTIDADE_PRODUZIDA + 1
+            WHERE ITEM_ID = r_item.ITEM_ID;
+        END LOOP;
+
+        UPDATE ORDEM_PRODUCAO
+        SET STATUS = 'EM_PRODUCAO'
+        WHERE ORDEM_ID = p_ordem_id;
+
+        COMMIT;
+    END IF;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END PRC_ATUALIZA_ORDEM_PRODUCAO;
+/

@@ -1,0 +1,47 @@
+name: Commit Message Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          echo "Validando commits do PR..."
+          COMMITS=$(git log --format="%s" origin/main..HEAD)
+          VALID_PATTERN="^(feat|fix|docs|refactor)(\(.+\))?: .+"
+          FAILED=0
+
+          while IFS= read -r msg; do
+            if [[ -z "$msg" ]]; then
+              continue
+            fi
+            if [[ ! "$msg" =~ $VALID_PATTERN ]]; then
+              echo "❌ Commit inválido: $msg"
+              FAILED=1
+            else
+              echo "✅ $msg"
+            fi
+            if [[ "$commit" == "Merge"* ]]; then
+              echo "⏭️ Pulando commit de merge"
+              continue
+            fi
+          done <<< "$COMMITS"
+
+          if [[ $FAILED -eq 1 ]]; then
+            echo ""
+            echo "Tipos permitidos: feat, fix, docs, refactor"
+            echo "Formato: <tipo>: <descrição> ou <tipo>(escopo): <descrição>"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ Todos os commits seguem o padrão semântico."

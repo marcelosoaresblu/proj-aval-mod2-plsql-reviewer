@@ -1,0 +1,38 @@
+name: Branch Name Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Branch: $BRANCH_NAME"
+
+          # Permitir develop como branch de integração
+          if [[ "$BRANCH_NAME" == "develop" ]]; then
+            echo "✅ Branch 'develop' permitida como branch de integração."
+            exit 0
+          fi
+
+          # Validar prefixo feature/ ou bugfix/
+          if [[ ! "$BRANCH_NAME" =~ ^(feature|bugfix)/[a-z0-9][a-z0-9-]{2,}$ ]]; then
+            echo "❌ Nome de branch inválido: $BRANCH_NAME"
+            echo ""
+            echo "Padrões aceitos:"
+            echo "  feature/<nome>  — nova funcionalidade"
+            echo "  bugfix/<nome>   — correção de bug"
+            echo "  develop         — branch de integração"
+            echo ""
+            echo "Regras do <nome>:"
+            echo "  - Apenas letras minúsculas, números e hífens"
+            echo "  - Mínimo de 3 caracteres"
+            echo "  - Sem espaços, underscores ou maiúsculas"
+            exit 1
+          fi
+
+          echo "✅ Nome de branch válido: $BRANCH_NAME"
