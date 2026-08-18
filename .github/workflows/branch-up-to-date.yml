@@ -1,0 +1,29 @@
+name: Branch Up-to-Date Check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-up-to-date:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if branch is up-to-date with main
+        run: |
+          git fetch origin main
+          BEHIND=$(git rev-list --count HEAD..origin/main)
+
+          if [[ $BEHIND -gt 0 ]]; then
+            echo "❌ Branch está $BEHIND commit(s) atrás de main."
+            echo "Atualize sua branch antes de fazer merge:"
+            echo "  git fetch origin"
+            echo "  git merge origin/main"
+            exit 1
+          fi
+
+          echo "✅ Branch está atualizada com main."

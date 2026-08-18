@@ -1,0 +1,15 @@
+name: Protect Main Branch
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  block-direct-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Block direct push to main
+        run: |
+          echo "❌ Push direto na branch main não é permitido."
+          echo "Use um Pull Request a partir de feature/* ou bugfix/*."
+          exit 1
