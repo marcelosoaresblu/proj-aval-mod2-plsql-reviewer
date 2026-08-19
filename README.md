@@ -115,6 +115,26 @@ gerado pelo agente para o exemplo acima.
 - O parecer do LLM depende da qualidade do modelo configurado e não
   substitui revisão humana em código crítico de produção.
 
+## Limitações
+
+- As regras estáticas são heurísticas simples (regex), não um parser
+  PL/SQL real — podem gerar falsos positivos/negativos.
+- O agente revisa um arquivo por vez; não analisa dependências entre
+  múltiplos objetos do banco.
+- O parecer do LLM depende da qualidade do modelo configurado e não
+  substitui revisão humana em código crítico de produção.
+- A base de documentação RAG é atualmente estática (simulada); em
+  produção, seria substituída por um vector store com embeddings semânticos.
+
 ## Prompts utilizados
 
 Ver [`docs/prompts.md`](docs/prompts.md).
+
+## Estratégia RAG
+
+O agente utiliza **RAG (Retrieval-Augmented Generation)** para enriquecer o contexto do modelo com documentação Oracle PL/SQL e boas práticas específicas do domínio ERP/PCP/MRP.
+
+Ver [`docs/rag_strategy.md`](docs/rag_strategy.md) para detalhes sobre:
+- Base de documentação (6 documentos sobre exceções, cursores, transações, performance, etc.)
+- Chunking, indexação e recuperação por keywords
+- Fontes externas e pipelines de recuperação
