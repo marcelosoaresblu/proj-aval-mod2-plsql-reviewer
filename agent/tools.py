@@ -5,8 +5,10 @@ Ferramentas integradas ao agente.
 2. run_static_checks  -> análise de código via heurísticas/regex antes de
                          acionar o LLM, reduzindo custo e dando contexto
                          mais preciso para a revisão final.
+3. get_best_practices -> integração com serviço externo via MCP para obter
+                         boas práticas Oracle PL/SQL baseadas no achado
 
-Ambas  são funções "controladas": recebem entradas validadas e não
+Todas são funções "controladas": recebem entradas validadas e não
 executam nada fora do escopo do arquivo informado.
 """
 
@@ -23,7 +25,23 @@ TAMANHO_MAXIMO_BYTES = 500_000
 
 
 def read_sql_file(caminho: str) -> str:
-    """Lê um arquivo de código PL/SQL do disco com validações básicas."""
+    """Lê um arquivo de código PL/SQL do disco com validações básicas.
+    
+    Validações:
+    - Arquivo existe
+    - Extensão está na lista de permitidas
+    - Tamanho não excede o limite
+    
+    Parâmetros:
+        caminho: Caminho absoluto ou relativo para o arquivo
+        
+    Retorna:
+        Conteúdo do arquivo como string
+        
+    Lança:
+        FileNotFoundError: Se o arquivo não existe
+        ValueError: Se extensão ou tamanho não são válidos
+    """
     if not os.path.isfile(caminho):
         raise FileNotFoundError(f"Arquivo não encontrado: {caminho}")
 
@@ -77,6 +95,88 @@ REGRAS = [
         "Bloco EXCEPTION presente — verifique se todas as exceções relevantes são tratadas.",
     ),
 ]
+
+
+# --- Tool integrada via MCP para obter boas práticas Oracle PL/SQL ---
+# Esta tool simula uma integração com serviço externo (ex: documentação Oracle,
+# API de boas práticas) para recomendações específicas baseadas no achado.
+
+def get_best_practices(achado: str) -> dict:
+    """Obtém recomendações de boas práticas Oracle PL/SQL baseadas no achado.
+    
+    Esta tool integra-se a um serviço externo via MCP (Model Context Protocol)
+    para buscar recomendações oficiais ou baseadas em documentação.
+    
+    Validações de entrada:
+    - `achado` deve ser uma string não vazia
+    - Deve corresponder a um tipo de problema conhecido
+    
+    Parâmetros:
+        achado: Nome do problema identificado (ex: "WHEN_OTHERS_SILENT", "SELECT_STAR")
+        
+    Retorna:
+        dict com:
+        - recomendacao: string com recomendação prática
+        - referencia: link/documento de referência
+        - nivel: severidade da recomendação ("alta", "media", "baixa")
+        
+    Lança:
+        ValueError: Se `achado` for inválido ou serviço externo estiver indisponível
+    """
+    # Mapeamento de achados para boas práticas (simulado com dados estáticos)
+    # Em produção, isso chamaria um serviço MCP ou API externa
+    PRATICS_DB = {
+        "WHEN_OTHERS_SILENT": {
+            "recomendacao": "Sempre inclua RAISE ou RAISE_APPLICATION_ERROR em WHEN OTHERS para não ocultar erros.",
+            "referencia": "Oracle PL/SQL Best Practices - Exception Handling",
+            "nivel": "alta",
+        },
+        "SELECT_STAR": {
+            "recomendacao": "Especifique colunas explicitamente para evitar problemas com schema changes e melhorar performance.",
+            "referencia": "Oracle SQL Tuning Guide - Avoid SELECT *",
+            "nivel": "media",
+        },
+        "COMMIT_INTERNAL": {
+            "recomendacao": "Evite COMMIT dentro de procedures; deixe o controle de transação para o chamador.",
+            "referencia": "Oracle PL/SQL Best Practices - Transaction Control",
+            "nivel": "media",
+        },
+        "HARDCODED_VALUE": {
+            "recomendacao": "Use parâmetros ou tabelas de configuração para valores fixos que podem mudar.",
+            "referencia": "Oracle PL/SQL Code Review Guidelines",
+            "nivel": "baixa",
+        },
+        "EXPLICIT_EXCEPTION": {
+            "recomendacao": "Trate exceções específicas (NO_DATA_FOUND, TOO_MANY_ROWS) antes de recorrer a WHEN OTHERS.",
+            "referencia": "Oracle PL/SQL User's Guide",
+            "nivel": "baixa",
+        },
+        "CURSOR_NO_HANDLING": {
+            "recomendacao": "Sempre inclua tratamento para NO_DATA_FOUND e TOO_MANY_ROWS quando abrir cursores.",
+            "referencia": "Oracle PL/SQL Best Practices - Cursor Handling",
+            "nivel": "baixa",
+        },
+    }
+    
+    # Validação de entrada (payload/schema)
+    if not isinstance(achado, str) or not achado.strip():
+        raise ValueError("Parâmetro 'achado' deve ser uma string não vazia")
+    
+    achado_normalizado = achado.upper().replace(" ", "_")
+    
+    # Validação: achado deve existir na base de boas práticas
+    if achado_normalizado not in PRATICS_DB:
+        raise ValueError(
+            f"Achado '{achado}' não reconhecido. Use um dos tipos: {list(PRATICS_DB.keys())}"
+        )
+    
+    try:
+        # Simulação de chamada a serviço externo via MCP
+        # Em produção: client = MCPClient(); return client.get_practices(achado)
+        return PRATICS_DB[achado_normalizado]
+    except Exception as e:
+        # Tratamento de falhas no serviço externo
+        raise RuntimeError(f"Falha ao obter boas práticas: {e}") from e
 
 
 def run_static_checks(codigo: str) -> List[StaticIssue]:

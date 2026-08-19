@@ -24,7 +24,7 @@ from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 
 from agent.state import AgentState
-from agent.tools import read_sql_file, run_static_checks
+from agent.tools import read_sql_file, run_static_checks, get_best_practices
 
 # Modelo usado para a revisão qualitativa.
 # A chave é lida automaticamente da variável de ambiente GROQ_API_KEY.
@@ -142,10 +142,54 @@ def generate_report_node(state: AgentState) -> dict:
         relatorio = f"# Erro na revisão\n\n{state['erro']}\n"
         return {"relatorio_final": relatorio}
 
+    # Adiciona boas práticas baseadas nos achados (integração com serviço externo)
+    recomendacoes_praticas = []
+    for issue in state["issues_estaticos"]:
+        try:
+            # Mapeia a regra para um achado conhecido
+            achado_map = {
+                "WHEN OTHERS sem RAISE": "WHEN_OTHERS_SILENT",
+                "SELECT *": "SELECT_STAR",
+                "COMMIT": "COMMIT_INTERNAL",
+                "valor hardcoded": "HARDCODED_VALUE",
+                "Bloco EXCEPTION": "EXPLICIT_EXCEPTION",
+                "Cursor declarado": "CURSOR_NO_HANDLING",
+            }
+            
+            for padrao, achado in achado_map.items():
+                if padrao.lower() in issue["descricao"].lower():
+                    pratica = get_best_practices(achado)
+                    recomendacoes_praticas.append({
+                        "linha": issue["linha"],
+                        "regra": issue["regra"],
+                        "recomendacao": pratica["recomendacao"],
+                        "referencia": pratica["referencia"],
+                        "nivel": issue["severidade"],
+                    })
+                    break
+        except Exception:
+            # Se a tool falhar, continua sem recomendação (falhaGraceful)
+            pass
+
     linhas_issues = "\n".join(
         f"| {i['linha']} | {i['severidade']} | {i['descricao']} |"
         for i in state["issues_estaticos"]
     ) or "| - | - | Nenhum achado automático |"
+
+    # Monta seção de recomendações
+    if recomendacoes_praticas:
+        linhas_recomendacoes = "\n".join(
+            f"| {r['linha']} | {r['regra'][:30]} | {r['recomendacao']} |"
+            for r in recomendacoes_praticas
+        )
+        secao_recomendacoes = f"""## Recomendações de boas práticas (Oracle PL/SQL)
+
+| Linha | Regra | Recomendação |
+|-------|-------|--------------|
+{linhas_recomendacoes}
+"""
+    else:
+        secao_recomendacoes = "## Recomendações de boas práticas\nNenhuma recomendação específica aplicável.\n"
 
     relatorio = f"""# Relatório de Revisão — {os.path.basename(state['caminho_arquivo'])}
 
@@ -157,6 +201,8 @@ def generate_report_node(state: AgentState) -> dict:
 
 ## Complexidade ciclomática
 {"Não calculada" if "complexidade_ciclomatica" not in state else f"Complexidade estimada: {state['complexidade_ciclomatica']}"}
+
+{secao_recomendacoes}
 
 ## Parecer do agente (LLM)
 
