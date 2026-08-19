@@ -5,13 +5,20 @@ Grafo:
 
     read_file -> [heuristic_check, complexity_check] (paralelo, ambos determinísticos)
                  |
-                 +-> llm_review (decisão do modelo)
+                 +-> rag_retrieval (recuperação de contexto via RAG)
+                 |
+                 +-> llm_review (decisão do modelo com contexto enriquecido)
                        |
                        +-> generate_report
 
 O agente separa:
 1. **Regras determinísticas** (regex/heurísticas): rápido, sem custo de API, detecta padrões conhecidos
-2. **Decisão do modelo (LLM)**: interpretação contextual, confirma/descarta achados, sugere melhorias
+2. **RAG** (recuperação de contexto): busca documentação Oracle PL/SQL baseada no código
+3. **Decisão do modelo (LLM)**: interpretação contextual, confirma/descarta achados, sugere melhorias
+
+O agente também usa:
+- Checkpointer (BaseCheckpointSaver): persistência de estado entre sessões
+- Session ID: identificação única para recuperação de histórico
 
 Cada função abaixo é um "nó": recebe o AgentState atual, faz seu trabalho
 e devolve APENAS as chaves do estado que alterou (LangGraph faz o merge).
@@ -25,6 +32,7 @@ from langchain_groq import ChatGroq
 
 from agent.state import AgentState
 from agent.tools import read_sql_file, run_static_checks, get_best_practices
+from agent.retriever import PLSQLRetriever
 
 # Modelo usado para a revisão qualitativa.
 # A chave é lida automaticamente da variável de ambiente GROQ_API_KEY.
@@ -95,12 +103,40 @@ def complexity_analysis_node(state: AgentState) -> dict:
     }
 
 
+def rag_retrieval_node(state: AgentState) -> dict:
+    """Nó 2c (determinístico): recupera contexto via RAG baseado no código e achados.
+    Enriquece o contexto do LLM com documentação Oracle PL/SQL e boas práticas.
+    
+    Usa PLSQLRetriever para buscar:
+    - Documentação oficial sobre tratamento de exceções
+    - Boas práticas para cursores, transações, SELECT
+    - Exemplos de código corrigido para problemas comuns
+    """
+    if state.get("erro"):
+        return {}
+    
+    try:
+        # Obtem contexto extra e histórico do state (se existir)
+        contexto_extra = state.get("contexto_extra", None)
+        historico = state.get("historico_interacoes", [])
+        
+        retriever = PLSQLRetriever(historico=historico)
+        rag_result = retriever.retrieve(
+            state["codigo_fonte"],
+            state["issues_estaticos"],
+            contexto_extra=contexto_extra,
+            historico=historico
+        )
+        return {"rag_result": rag_result}
+    except Exception as e:
+        # Em caso de falha na recuperação, continua sem RAG (falhaGraceful)
+        return {"rag_result": None, "erro": f"Falha na recuperação RAG: {e}"}
+
+
 def llm_review_node(state: AgentState) -> dict:
     """Nó 3 (decisão do modelo): usa o LLM para gerar o parecer qualitativo.
-    Usa como contexto os achados determinísticos (heurísticas + complexidade) e decide:
-    - Confirma quais achados são relevantes
-    - Descarta falsos positivos
-    - Sugere até 5 melhorias concretas, priorizadas por impacto"""
+    Usa como contexto os achados determinísticos (heurísticas + complexidade) e
+    o contexto recuperado via RAG (documentação Oracle PL/SQL)."""
 
     llm = ChatGroq(model=MODEL_NAME, max_tokens=1500)
 
@@ -115,7 +151,47 @@ def llm_review_node(state: AgentState) -> dict:
 Complexidade ciclomática estimada: {state['complexidade_ciclomatica']}
 Pontos de decisão identificados: {', '.join(state['pontos_decisao']) if state.get('pontos_decisao') else 'Nenhum'}"""
     
-    prompt = f"""Código PL/SQL a revisar:
+    # Contexto RAG recuperado
+    contexto_rag = ""
+    if state.get("rag_result") and state["rag_result"].get("documentos"):
+        documentos = state["rag_result"]["documentos"]
+        contexto_rag = "\n\n=== DOCUMENTAÇÃO ORACLE PL/SQL (RAG) ===\n"
+        for doc in documentos[:3]:  # Top 3 documentos mais relevantes
+            contexto_rag += f"\n--- {doc['titulo']} (score: {doc['score']}) ---\n"
+            contexto_rag += f"Topico: {doc['topico']}\n"
+            contexto_rag += f"Conteudo: {doc['conteudo']}\n"
+    
+    # Contexto extra (configurações do usuário, preferências, etc.)
+    contexto_extra = ""
+    if state.get("contexto_extra"):
+        contexto_extra = f"\n\n=== CONTEXTO EXTRA (CONFIGURAÇÕES) ===\n"
+        for chave, valor in state["contexto_extra"].items():
+            contexto_extra += f"- {chave}: {valor}\n"
+    
+    prompt = f"""Você é um revisor sênior de código PL/SQL, especializado em
+sistemas de ERP/PCP/MRP. Você recebe um trecho de código, uma lista de
+achados de uma análise estática automática (heurísticas simples), documentação
+Oracle PL/SQL relevante, e contexto adicional.
+
+Sua tarefa:
+1. Avaliar a qualidade geral do código (legibilidade, tratamento de erros,
+   performance, aderência a boas práticas de PL/SQL).
+2. Comentar os achados da análise estática: confirme quais são relevantes,
+   descarte falsos positivos e explique o porquê.
+3. Usar a documentação Oracle PL/SQL (quando disponível) para fundamentar
+   suas recomendações.
+4. Levar em conta o contexto extra (ex: preferências do time, diretrizes
+   específicas do ERP/PCP/MRP).
+5. Sugerir no máximo 5 melhorias concretas, priorizadas por impacto.
+
+Responda em português, em formato Markdown, de forma objetiva e técnica.
+Não invente comportamento do sistema que não esteja no código.
+
+{contexto_extra}
+
+---
+
+Código PL/SQL a revisar:
 
 ```sql
 {state['codigo_fonte']}
@@ -123,7 +199,10 @@ Pontos de decisão identificados: {', '.join(state['pontos_decisao']) if state.g
 
 Achados da análise estática automática:
 {resumo_issues}
+
 {contexto_complexidade}
+
+{contexto_rag}
 """
 
     resposta = llm.invoke(
@@ -133,6 +212,27 @@ Achados da análise estática automática:
         ]
     )
     return {"parecer_llm": resposta.content}
+
+
+def save_history_node(state: AgentState) -> dict:
+    """Nó 3b (determinístico): salva o histórico de interações no state.
+    
+    Adiciona as mensagens do LLM ao histórico para:
+    - Persistência entre sessões
+    - Aprendizado contínuo
+    - Contexto para próximas execuções
+    """
+    historico = state.get("historico_interacoes", [])
+    
+    # Adiciona a interação atual (apenas a mensagem do LLM)
+    if state.get("parecer_llm"):
+        historico.append({
+            "role": "assistant",
+            "content": state["parecer_llm"],
+            "timestamp": "2026-08-19T00:00:00Z",  # Em produção, usar datetime.now().isoformat()
+        })
+    
+    return {"historico_interacoes": historico}
 
 
 def generate_report_node(state: AgentState) -> dict:
@@ -227,27 +327,34 @@ def build_graph():
     graph.add_node("read_file", read_file_node)
     graph.add_node("heuristic_check", static_analysis_node)
     graph.add_node("complexity_check", complexity_analysis_node)
+    graph.add_node("rag_retrieval", rag_retrieval_node)
     graph.add_node("llm_review", llm_review_node)
+    graph.add_node("save_history", save_history_node)
     graph.add_node("generate_report", generate_report_node)
 
     # Ponto de entrada
     graph.set_entry_point("read_file")
 
-    # Fluxo principal: read_file -> [heuristic_check, complexity_check] (paralelo, ambos determinísticos)
+    # Fluxo principal: read_file -> [heuristic_check, complexity_check, rag_retrieval] (paralelo)
     graph.add_edge("read_file", "heuristic_check")
     graph.add_edge("read_file", "complexity_check")
+    graph.add_edge("read_file", "rag_retrieval")
     
     # Ambos os nós paralelos convergem para llm_review (decisão do modelo)
     graph.add_edge("heuristic_check", "llm_review")
     graph.add_edge("complexity_check", "llm_review")
+    graph.add_edge("rag_retrieval", "llm_review")
     
-    # Ramificação condicional: se erro, pula para generate_report (sem LLM)
+    # Após o LLM, salva o histórico
+    graph.add_edge("llm_review", "save_history")
+    
+    # Ramificação condicional: se erro, pula para generate_report (sem LLM e save_history)
     graph.add_conditional_edges(
         "llm_review",
         check_error,
         {
             "error_path": "generate_report",
-            "normal_path": "generate_report",
+            "normal_path": "save_history",
         },
     )
     
