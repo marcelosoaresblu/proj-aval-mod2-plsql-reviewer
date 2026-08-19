@@ -3,13 +3,23 @@ Fluxo do agente revisor de PL/SQL, construído com LangGraph.
 
 Grafo:
 
-    read_file -> static_analysis -> llm_review -> generate_report
+    read_file -> [heuristic_check, complexity_check] (paralelo, ambos determinísticos)
+                 |
+                 +-> llm_review (decisão do modelo)
+                       |
+                       +-> generate_report
+
+O agente separa:
+1. **Regras determinísticas** (regex/heurísticas): rápido, sem custo de API, detecta padrões conhecidos
+2. **Decisão do modelo (LLM)**: interpretação contextual, confirma/descarta achados, sugere melhorias
 
 Cada função abaixo é um "nó": recebe o AgentState atual, faz seu trabalho
 e devolve APENAS as chaves do estado que alterou (LangGraph faz o merge).
 """
 
 import os
+import re
+from typing import Literal
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 
@@ -38,7 +48,7 @@ Não invente comportamento do sistema que não esteja no código."""
 
 
 def read_file_node(state: AgentState) -> dict:
-    """Nó 1: lê o arquivo de entrada usando a ferramenta de leitura."""
+    """Nó 1 (determinístico): lê o arquivo de entrada usando a ferramenta de leitura."""
     try:
         codigo = read_sql_file(state["caminho_arquivo"])
         return {"codigo_fonte": codigo, "erro": None}
@@ -47,18 +57,50 @@ def read_file_node(state: AgentState) -> dict:
 
 
 def static_analysis_node(state: AgentState) -> dict:
-    """Nó 2: roda as checagens estáticas (ferramenta) sobre o código lido."""
-    if state.get("erro"):
-        return {}
+    """Nó 2 (determinístico): roda as checagens de heurísticas (regex) sobre o código lido.
+    Detecta padrões conhecidos: WHEN OTHERS sem RAISE, SELECT *, COMMIT, valores hardcoded."""
     issues = run_static_checks(state["codigo_fonte"])
     return {"issues_estaticos": issues}
 
 
+def complexity_analysis_node(state: AgentState) -> dict:
+    """Nó 2b (determinístico): análise de complexidade ciclomática (regex).
+    Conta pontos de decisão (IF, ELSIF, ELSE, CASE, WHEN, LOOP, FOR, WHILE)."""
+    codigo = state["codigo_fonte"]
+    decisoes = 0
+    linhas_decisao = []
+    
+    padroes_decisao = [
+        (r"\bIF\b", "IF"),
+        (r"\bELSIF\b", "ELSIF"),
+        (r"\bELSE\b", "ELSE"),
+        (r"\bCASE\b", "CASE"),
+        (r"\bWHEN\b", "WHEN"),
+        (r"\bLOOP\b", "LOOP"),
+        (r"\bFOR\b", "FOR"),
+        (r"\bWHILE\b", "WHILE"),
+    ]
+    
+    for num, linha in enumerate(codigo.splitlines(), start=1):
+        for padrao, nome in padroes_decisao:
+            if len(linhas_decisao) < 5 and __import__('re').search(padrao, linha, re.IGNORECASE):
+                decisoes += 1
+                linhas_decisao.append(f"L{num}: {nome}")
+    
+    # Estimativa básica: complexidade = 1 + número de decisões
+    complexidade = 1 + decisoes
+    return {
+        "complexidade_ciclomatica": complexidade,
+        "pontos_decisao": linhas_decisao,
+    }
+
+
 def llm_review_node(state: AgentState) -> dict:
-    """Nó 3: usa o LLM para gerar o parecer qualitativo, com contexto dos
-    achados estáticos (uso de memória/contexto acumulado no estado)."""
-    if state.get("erro"):
-        return {}
+    """Nó 3 (decisão do modelo): usa o LLM para gerar o parecer qualitativo.
+    Usa como contexto os achados determinísticos (heurísticas + complexidade) e decide:
+    - Confirma quais achados são relevantes
+    - Descarta falsos positivos
+    - Sugere até 5 melhorias concretas, priorizadas por impacto"""
 
     llm = ChatGroq(model=MODEL_NAME, max_tokens=1500)
 
@@ -66,7 +108,13 @@ def llm_review_node(state: AgentState) -> dict:
         f"- Linha {i['linha']} [{i['severidade']}]: {i['descricao']}"
         for i in state["issues_estaticos"]
     ) or "Nenhum achado automático."
-
+    
+    contexto_complexidade = ""
+    if "complexidade_ciclomatica" in state:
+        contexto_complexidade = f"""
+Complexidade ciclomática estimada: {state['complexidade_ciclomatica']}
+Pontos de decisão identificados: {', '.join(state['pontos_decisao']) if state.get('pontos_decisao') else 'Nenhum'}"""
+    
     prompt = f"""Código PL/SQL a revisar:
 
 ```sql
@@ -75,6 +123,7 @@ def llm_review_node(state: AgentState) -> dict:
 
 Achados da análise estática automática:
 {resumo_issues}
+{contexto_complexidade}
 """
 
     resposta = llm.invoke(
@@ -87,7 +136,7 @@ Achados da análise estática automática:
 
 
 def generate_report_node(state: AgentState) -> dict:
-    """Nó 4: monta o relatório final em Markdown a partir de tudo que foi
+    """Nó 4 (determinístico): monta o relatório final em Markdown a partir de tudo que foi
     acumulado no estado durante a execução."""
     if state.get("erro"):
         relatorio = f"# Erro na revisão\n\n{state['erro']}\n"
@@ -106,6 +155,9 @@ def generate_report_node(state: AgentState) -> dict:
 |-------|------------|-----------|
 {linhas_issues}
 
+## Complexidade ciclomática
+{"Não calculada" if "complexidade_ciclomatica" not in state else f"Complexidade estimada: {state['complexidade_ciclomatica']}"}
+
 ## Parecer do agente (LLM)
 
 {state['parecer_llm']}
@@ -113,19 +165,56 @@ def generate_report_node(state: AgentState) -> dict:
     return {"relatorio_final": relatorio}
 
 
+def check_error(state: AgentState) -> Literal["error_path", "normal_path"]:
+    """Função de ramificação condicional (determinística): decide se segue o fluxo normal ou pula para relatório de erro.
+    Regra simples: se 'erro' estiver no estado, vai para error_path; senão, para normal_path."""
+    if state.get("erro"):
+        return "error_path"
+    return "normal_path"
+
+
 def build_graph():
     """Monta e compila o grafo do agente."""
     graph = StateGraph(AgentState)
 
+    # Nós
     graph.add_node("read_file", read_file_node)
-    graph.add_node("static_analysis", static_analysis_node)
+    graph.add_node("heuristic_check", static_analysis_node)
+    graph.add_node("complexity_check", complexity_analysis_node)
     graph.add_node("llm_review", llm_review_node)
     graph.add_node("generate_report", generate_report_node)
 
+    # Ponto de entrada
     graph.set_entry_point("read_file")
-    graph.add_edge("read_file", "static_analysis")
-    graph.add_edge("static_analysis", "llm_review")
-    graph.add_edge("llm_review", "generate_report")
+
+    # Fluxo principal: read_file -> [heuristic_check, complexity_check] (paralelo, ambos determinísticos)
+    graph.add_edge("read_file", "heuristic_check")
+    graph.add_edge("read_file", "complexity_check")
+    
+    # Ambos os nós paralelos convergem para llm_review (decisão do modelo)
+    graph.add_edge("heuristic_check", "llm_review")
+    graph.add_edge("complexity_check", "llm_review")
+    
+    # Ramificação condicional: se erro, pula para generate_report (sem LLM)
+    graph.add_conditional_edges(
+        "llm_review",
+        check_error,
+        {
+            "error_path": "generate_report",
+            "normal_path": "generate_report",
+        },
+    )
+    
+    # Parada antecipada: se erro no read_file, pula direto para generate_report
+    graph.add_conditional_edges(
+        "read_file",
+        check_error,
+        {
+            "error_path": "generate_report",
+            "normal_path": "heuristic_check",
+        },
+    )
+    
     graph.add_edge("generate_report", END)
 
     return graph.compile()
