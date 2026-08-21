@@ -103,17 +103,7 @@ gerado pelo agente para o exemplo acima.
   por ser suficiente para o escopo do mini-projeto e manter o código
   legível.
 - Modelo do LLM configurável via variável de ambiente `REVIEWER_MODEL`
-  (padrão: `llama-3.3-70b-versatile`), para não travar o projeto a um modelo
-  específico.
-
-## Limitações
-
-- As regras estáticas são heurísticas simples (regex), não um parser
-  PL/SQL real — podem gerar falsos positivos/negativos.
-- O agente revisa um arquivo por vez; não analisa dependências entre
-  múltiplos objetos do banco.
-- O parecer do LLM depende da qualidade do modelo configurado e não
-  substitui revisão humana em código crítico de produção.
+  (padrão: `llama-3.3-70b-versatile`), para não travar o projeto a um modelo específico.
 
 ## Limitações
 

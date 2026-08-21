@@ -39,6 +39,14 @@ var/
 *.swo
 *~
 
+# Kiro specs e steering (adicionados explicitamente)
+.kiro/specs/design.md
+.kiro/specs/requirements.md
+.kiro/specs/tasks.md
+.kiro/steering/product.md
+.kiro/steering/structure.md
+.kiro/steering/tech.md
+
 # Arquivos de projeto
 *.md
 !README.md
