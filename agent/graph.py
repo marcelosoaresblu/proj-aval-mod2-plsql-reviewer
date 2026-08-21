@@ -33,6 +33,12 @@ from langchain_groq import ChatGroq
 from agent.state import AgentState
 from agent.tools import read_sql_file, run_static_checks, get_best_practices
 from agent.retriever import PLSQLRetriever
+from agent.autonomy import (
+    can_execute,
+    requires_approval,
+    validate_autonomy,
+    AutonomyLevel,
+)
 
 # Modelo usado para a revisão qualitativa.
 # A chave é lida automaticamente da variável de ambiente GROQ_API_KEY.
@@ -137,81 +143,14 @@ def llm_review_node(state: AgentState) -> dict:
     """Nó 3 (decisão do modelo): usa o LLM para gerar o parecer qualitativo.
     Usa como contexto os achados determinísticos (heurísticas + complexidade) e
     o contexto recuperado via RAG (documentação Oracle PL/SQL)."""
-
+    
+    # Validar autonomia da chamada ao LLM
+    validation = validate_autonomy("llm_review", {"model": MODEL_NAME, "max_tokens": 1500})
+    
+    if not validation["allowed"]:
+        return {"erro": f"Ação bloqueada: {validation['reason']}"}
+    
     llm = ChatGroq(model=MODEL_NAME, max_tokens=1500)
-
-    resumo_issues = "\n".join(
-        f"- Linha {i['linha']} [{i['severidade']}]: {i['descricao']}"
-        for i in state["issues_estaticos"]
-    ) or "Nenhum achado automático."
-    
-    contexto_complexidade = ""
-    if "complexidade_ciclomatica" in state:
-        contexto_complexidade = f"""
-Complexidade ciclomática estimada: {state['complexidade_ciclomatica']}
-Pontos de decisão identificados: {', '.join(state['pontos_decisao']) if state.get('pontos_decisao') else 'Nenhum'}"""
-    
-    # Contexto RAG recuperado
-    contexto_rag = ""
-    if state.get("rag_result") and state["rag_result"].get("documentos"):
-        documentos = state["rag_result"]["documentos"]
-        contexto_rag = "\n\n=== DOCUMENTAÇÃO ORACLE PL/SQL (RAG) ===\n"
-        for doc in documentos[:3]:  # Top 3 documentos mais relevantes
-            contexto_rag += f"\n--- {doc['titulo']} (score: {doc['score']}) ---\n"
-            contexto_rag += f"Topico: {doc['topico']}\n"
-            contexto_rag += f"Conteudo: {doc['conteudo']}\n"
-    
-    # Contexto extra (configurações do usuário, preferências, etc.)
-    contexto_extra = ""
-    if state.get("contexto_extra"):
-        contexto_extra = f"\n\n=== CONTEXTO EXTRA (CONFIGURAÇÕES) ===\n"
-        for chave, valor in state["contexto_extra"].items():
-            contexto_extra += f"- {chave}: {valor}\n"
-    
-    prompt = f"""Você é um revisor sênior de código PL/SQL, especializado em
-sistemas de ERP/PCP/MRP. Você recebe um trecho de código, uma lista de
-achados de uma análise estática automática (heurísticas simples), documentação
-Oracle PL/SQL relevante, e contexto adicional.
-
-Sua tarefa:
-1. Avaliar a qualidade geral do código (legibilidade, tratamento de erros,
-   performance, aderência a boas práticas de PL/SQL).
-2. Comentar os achados da análise estática: confirme quais são relevantes,
-   descarte falsos positivos e explique o porquê.
-3. Usar a documentação Oracle PL/SQL (quando disponível) para fundamentar
-   suas recomendações.
-4. Levar em conta o contexto extra (ex: preferências do time, diretrizes
-   específicas do ERP/PCP/MRP).
-5. Sugerir no máximo 5 melhorias concretas, priorizadas por impacto.
-
-Responda em português, em formato Markdown, de forma objetiva e técnica.
-Não invente comportamento do sistema que não esteja no código.
-
-{contexto_extra}
-
----
-
-Código PL/SQL a revisar:
-
-```sql
-{state['codigo_fonte']}
-```
-
-Achados da análise estática automática:
-{resumo_issues}
-
-{contexto_complexidade}
-
-{contexto_rag}
-"""
-
-    resposta = llm.invoke(
-        [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ]
-    )
-    return {"parecer_llm": resposta.content}
 
 
 def save_history_node(state: AgentState) -> dict:
