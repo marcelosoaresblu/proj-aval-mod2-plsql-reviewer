@@ -125,8 +125,9 @@ class IntegrationManager:
         """Calcula delay com backoff exponencial."""
         delay = self.retry_delay_base * (2 ** attempt)
         delay = min(delay, self.retry_delay_max)
-        # Adiciona jitter para evitar thundering herd
-        delay *= (0.8 + random.uniform(0, 0.4))
+        # Adiciona jitter para evitar thundering herd, mantendo dentro do max
+        jitter_factor = 0.8 + random.uniform(0, 0.2)  # 0.8 a 1.0
+        delay = min(delay * jitter_factor, self.retry_delay_max)
         return delay
     
     def call_with_retry(
