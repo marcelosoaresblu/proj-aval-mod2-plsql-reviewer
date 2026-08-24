@@ -558,6 +558,7 @@ def build_graph():
     
     # Após o LLM, salva o histórico
     graph.add_edge("llm_review", "save_history")
+    graph.add_edge("save_history", "generate_report")
     
     # Ramificação condicional: se erro, pula para generate_report (sem LLM e save_history)
     graph.add_conditional_edges(

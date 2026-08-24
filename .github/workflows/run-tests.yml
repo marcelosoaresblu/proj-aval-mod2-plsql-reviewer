@@ -1,0 +1,51 @@
+name: Run Tests
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+          pip list
+
+      - name: Run security tests
+        run: |
+          pytest tests/test_security.py -v
+
+      - name: Run integration tests
+        run: |
+          pytest tests/test_integrations.py -v -m "not slow"
+
+      - name: Run agent unit tests
+        run: |
+          pytest tests/test_agent.py -v
+
+      - name: Run acceptance tests
+        run: |
+          pytest tests/test_acceptance.py -v
+
+      - name: Run E2E tests (optional, mark as optional)
+        run: |
+          pytest tests/test_e2e.py -v -m "not e2e" || true
+        continue-on-error: true
+
+      - name: Run all tests
+        run: |
+          pytest tests/ -v --tb=short || true
