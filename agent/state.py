@@ -11,7 +11,7 @@ Adicionalmente, o agente usa:
 - Histórico: histórico de interações para contexto contínuo
 """
 
-from typing import TypedDict, List, Optional, Dict, Any
+from typing import Any, TypedDict
 
 
 class ChatMessage(TypedDict):
@@ -29,33 +29,33 @@ class StaticIssue(TypedDict):
 
 class RAGResult(TypedDict):
     """Resultado de recuperação de contexto via RAG."""
-    documentos: List[Dict[str, Any]]  # Documentos relevantes recuperados
-    queries: List[str]  # Queries usadas na busca
+    documentos: list[dict[str, Any]]  # Documentos relevantes recuperados
+    queries: list[str]  # Queries usadas na busca
     score: float  # Score médio de relevância (0-1)
 
 class AgentState(TypedDict):
     # --- entrada ---
     caminho_arquivo: str
-    session_id: Optional[str]  # ID da sessão para persistência
-    contexto_extra: Optional[Dict[str, Any]]  # Contexto extra para enriquecer o prompt
+    session_id: str | None  # ID da sessão para persistência
+    contexto_extra: dict[str, Any] | None  # Contexto extra para enriquecer o prompt
 
     # --- preenchido pelo nó read_file ---
-    codigo_fonte: Optional[str]
+    codigo_fonte: str | None
 
     # --- preenchido pelo nó static_analysis ---
-    issues_estaticos: List[StaticIssue]
+    issues_estaticos: list[StaticIssue]
 
     # --- preenchido pelo nó rag_retrieval ---
-    rag_result: Optional[RAGResult]
+    rag_result: RAGResult | None
 
     # --- preenchido pelo nó llm_review ---
-    parecer_llm: Optional[str]
+    parecer_llm: str | None
 
     # --- preenchido pelo nó generate_report ---
-    relatorio_final: Optional[str]
+    relatorio_final: str | None
 
     # --- controle de erros ---
-    erro: Optional[str]
+    erro: str | None
 
     # --- histórico de interações (para persistência) ---
-    historico_interacoes: List[ChatMessage]
+    historico_interacoes: list[ChatMessage]

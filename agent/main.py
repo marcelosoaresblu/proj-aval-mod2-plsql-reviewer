@@ -13,6 +13,7 @@ import argparse
 import sys
 
 from dotenv import load_dotenv
+
 from agent.graph import build_graph
 
 load_dotenv()  # lê o arquivo .env, se existir, e popula os env vars

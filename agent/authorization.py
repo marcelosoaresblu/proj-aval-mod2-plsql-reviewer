@@ -11,20 +11,20 @@ Princípios:
 
 import os
 import re
-from typing import Dict, Any, Optional
+from typing import Any
 
 
 # Configurações de permissão
 class PermissionsConfig:
     """Configurações de permissão do agente."""
-    
+
     # Tools que requerem permissão explícita
     RESTRICTED_TOOLS = [
         "read_sql_file",
         "get_best_practices",
         "llm_invoke",
     ]
-    
+
     # Caminhos que nunca devem ser acessados (segurança)
     PROTECTED_PATHS = [
         "/etc",
@@ -37,7 +37,7 @@ class PermissionsConfig:
         "/proc",
         "/sys",
     ]
-    
+
     # Variáveis de ambiente sensíveis que nunca devem ser expostas
     SENSITIVE_ENV_VARS = [
         "GROQ_API_KEY",
@@ -70,21 +70,21 @@ def check_file_access(caminho: str) -> bool:
     """
     # Normalizar caminho
     caminho_normalizado = os.path.normpath(caminho)
-    
+
     # Verificar se está em diretório protegido
     for path_protected in PermissionsConfig.PROTECTED_PATHS:
         if path_protected in caminho_normalizado:
             raise PermissionError(
                 f"Acesso negado ao caminho protegido: {caminho}"
             )
-    
+
     # Verificar extensão permitida
     _, ext = os.path.splitext(caminho)
     if ext.lower() not in {".sql", ".pck", ".pkb", ".pks", ".prc", ".fnc"}:
         raise PermissionError(
             f"Extensão '{ext}' não permitida. Use apenas arquivos PL/SQL."
         )
-    
+
     return True
 
 
@@ -107,13 +107,13 @@ def check_api_access(tool_name: str) -> bool:
             raise PermissionError(
                 f"Tool '{tool_name}' requer GROQ_API_KEY configurada"
             )
-        
+
         # Validação básica da chave (formato esperado da Groq)
         if not re.match(r"^gsk_[a-zA-Z0-9]{20,}$", api_key):
             raise PermissionError(
-                f"Chave GROQ_API_KEY inválida (formato esperado: gsk_...)"
+                "Chave GROQ_API_KEY inválida (formato esperado: gsk_...)"
             )
-        
+
     return True
 
 
@@ -127,25 +127,25 @@ def sanitize_output(text: str) -> str:
         Texto sem segredos (com placeholders)
     """
     resultado = text
-    
+
     # Substituir chaves de API por placeholders
     resultado = re.sub(
         r"(GROQ_API_KEY|ANTHROPIC_API_KEY)\s*=\s*['\"]?([a-zA-Z0-9_\-]+)['\"]?",
         r"\1=***REDACTED***",
         resultado
     )
-    
+
     # Substituir qualquer string que pareça uma chave de API
     resultado = re.sub(
         r"gsk_[a-zA-Z0-9]{20,}",
         "***REDACTED_API_KEY***",
         resultado
     )
-    
+
     return resultado
 
 
-def validate_input_payload(payload: Dict[str, Any], tool_name: str) -> bool:
+def validate_input_payload(payload: dict[str, Any], tool_name: str) -> bool:
     """Valida o payload de entrada de uma tool.
     
     Args:
@@ -160,23 +160,23 @@ def validate_input_payload(payload: Dict[str, Any], tool_name: str) -> bool:
     """
     if not isinstance(payload, dict):
         raise ValueError("Payload deve ser um dicionário")
-    
+
     if tool_name == "read_sql_file":
         if "caminho" not in payload:
             raise ValueError("Payload de 'read_sql_file' deve conter 'caminho'")
         if not isinstance(payload["caminho"], str):
             raise ValueError("Parâmetro 'caminho' deve ser uma string")
-    
+
     elif tool_name == "get_best_practices":
         if "achado" not in payload:
             raise ValueError("Payload de 'get_best_practices' deve conter 'achado'")
         if not isinstance(payload["achado"], str):
             raise ValueError("Parâmetro 'achado' deve ser uma string")
-    
+
     return True
 
 
-def mask_secrets_in_state(state: Dict[str, Any]) -> Dict[str, Any]:
+def mask_secrets_in_state(state: dict[str, Any]) -> dict[str, Any]:
     """Remove segredos do estado antes de armazenar ou logar.
     
     Args:
@@ -186,7 +186,7 @@ def mask_secrets_in_state(state: Dict[str, Any]) -> Dict[str, Any]:
         Estado sem segredos
     """
     resultado = {}
-    
+
     for key, value in state.items():
         if key.upper() in PermissionsConfig.SENSITIVE_ENV_VARS:
             resultado[key] = "***REDACTED***"
@@ -196,5 +196,5 @@ def mask_secrets_in_state(state: Dict[str, Any]) -> Dict[str, Any]:
             resultado[key] = mask_secrets_in_state(value)
         else:
             resultado[key] = value
-    
+
     return resultado

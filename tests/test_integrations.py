@@ -9,17 +9,16 @@ Cobertura:
 """
 
 import os
-import pytest
 import time
-from unittest.mock import Mock, patch, MagicMock
+
+import pytest
 
 from agent.integrations import (
-    IntegrationManager,
-    IntegrationError,
-    TimeoutError,
-    CircuitBreakerError,
-    RetryState,
     APIFallback,
+    CircuitBreakerError,
+    IntegrationManager,
+    RetryState,
+    TimeoutError,
 )
 
 
@@ -121,7 +120,7 @@ class TestIntegrationManager:
         # Simula estado OPEN diretamente no circuit breaker
         cb = self.manager._get_circuit_breaker(service)
         cb["state"] = RetryState.OPEN
-        
+
         # O circuit breaker deve estar OPEN após definição direta
         state = self.manager._get_circuit_breaker(service)["state"]
         assert state == RetryState.OPEN, f"Estado deve ser OPEN, mas é {state}"
@@ -129,7 +128,7 @@ class TestIntegrationManager:
     def test_circuit_breaker_resets_on_success(self):
         """Sucesso deve resetar contagem de falhas do circuit breaker."""
         service = "reset_test_service"
-        
+
         class State:
             fail_count = 0
 
@@ -145,7 +144,7 @@ class TestIntegrationManager:
                 self.manager.call_with_retry(fail_then_succeed, service, 5)
             except Exception:
                 pass
-        
+
         # Ainda CLOSED (não atingiu threshold)
         assert self.manager._get_circuit_breaker(service)["state"] == RetryState.CLOSED
 
@@ -175,10 +174,10 @@ class TestAPIFallback:
     def test_groq_provider_available(self):
         """Groq deve estar disponível se GROQ_API_KEY existir."""
         os.environ["GROQ_API_KEY"] = "gsk_test_key_123"
-        
+
         fallback = APIFallback()
         provider = fallback.get_provider()
-        
+
         assert provider is not None
         assert provider["name"] == "groq"
 
@@ -186,10 +185,10 @@ class TestAPIFallback:
         """Anthropic deve estar disponível se ANTHROPIC_API_KEY existir."""
         os.environ.pop("GROQ_API_KEY", None)
         os.environ["ANTHROPIC_API_KEY"] = "sk-test_key_123"
-        
+
         fallback = APIFallback()
         provider = fallback.get_provider()
-        
+
         assert provider is not None
         assert provider["name"] == "anthropic"
 
@@ -197,9 +196,9 @@ class TestAPIFallback:
         """Deve ser possível escolher um provedor específico."""
         os.environ["GROQ_API_KEY"] = "gsk_test_key_123"
         os.environ["ANTHROPIC_API_KEY"] = "sk-test_key_456"
-        
+
         fallback = APIFallback()
-        
+
         # Escolhe Anthropic explicitamente
         provider = fallback.get_provider("anthropic")
         assert provider is not None
@@ -209,10 +208,10 @@ class TestAPIFallback:
         """Nenhum provedor deve estar disponível sem chaves."""
         os.environ.pop("GROQ_API_KEY", None)
         os.environ.pop("ANTHROPIC_API_KEY", None)
-        
+
         fallback = APIFallback()
         provider = fallback.get_provider()
-        
+
         assert provider is None
 
 
@@ -222,7 +221,7 @@ class TestTimeoutHandling:
     def test_timeout_with_delayed_response(self):
         """Timeout deve ocorrer se resposta demorar mais que o limite."""
         manager = IntegrationManager(default_timeout=0.5, max_retries=1)
-        
+
         def delayed_response():
             time.sleep(0.3)
             return "resposta tardia"
@@ -234,7 +233,7 @@ class TestTimeoutHandling:
     def test_timeout_cuts_response(self):
         """Timeout deve cortar resposta que excede o limite."""
         manager = IntegrationManager(default_timeout=0.2, max_retries=1)
-        
+
         def delayed_response():
             time.sleep(0.4)
             return "resposta tardia"
@@ -253,9 +252,9 @@ class TestCircuitBreakerIntegration:
             circuit_breaker_threshold=2,
             max_retries=3,
         )
-        
+
         failure_count = 0
-        
+
         def always_fail(x):
             nonlocal failure_count
             failure_count += 1
@@ -279,7 +278,7 @@ class TestRetryBackoffCalculation:
             retry_delay_base=1.0,
             retry_delay_max=10.0,
         )
-        
+
         # Verifica que o cálculo está dentro dos limites
         # Delay deve ser entre base*0.8 e max
         for attempt in range(15):

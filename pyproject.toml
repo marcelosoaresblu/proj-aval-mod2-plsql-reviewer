@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plsql-reviewer"
+version = "1.0.0"
+description = "Agente revisor de código PL/SQL com análise estática, RAG e LLM"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = " Marcelo Soares", email = "marcelo.soares.blu@gmail.com"}
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain-groq>=0.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+plsql-reviewer = "agent.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agent*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "I"]
+ignore = [
+    "PLR", "C4", "B", "N", "UP", "YTT",
+    "E501", "W293", "PLC0415", "PT011", "F841",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = ["__pycache__|\\.pyc|\\.pyo|.venv|build|dist|tests"]

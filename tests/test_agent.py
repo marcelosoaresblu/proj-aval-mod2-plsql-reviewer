@@ -10,13 +10,14 @@ Cobertura:
 6. check_error_branch: Ramificação condicional
 """
 
-import pytest
 from pathlib import Path
 
-from agent.state import AgentState
+import pytest
+
 from agent.graph import (
     check_error,
 )
+from agent.state import AgentState
 from agent.tools import run_static_checks
 
 
@@ -27,14 +28,14 @@ class TestReadFileNode:
         """Leitura bem-sucedida deve retornar código."""
         example_path = Path("examples/input_example.sql")
         sql_content = example_path.read_text()
-        
+
         assert len(sql_content) > 0
         assert "CREATE OR REPLACE" in sql_content
 
     def test_file_not_found(self):
         """Arquivo inexistente deve levantar exceção."""
         from agent.tools import read_sql_file
-        
+
         with pytest.raises(FileNotFoundError):
             read_sql_file("nao_existe.sql")
 
@@ -77,7 +78,7 @@ class TestComplexityAnalysisNode:
     def test_simple_code(self):
         """Código simples deve ter baixa complexidade."""
         from agent.graph import complexity_analysis_node
-        
+
         code = """
 BEGIN
     SELECT DUMMY INTO :x FROM DUAL;
@@ -85,7 +86,7 @@ END;
 """
         state: AgentState = {"codigo_fonte": code}
         result = complexity_analysis_node(state)
-        
+
         assert result["complexidade_ciclomatica"] == 1
 
     def test_code_with_if(self):
@@ -100,18 +101,18 @@ END;
         from agent.graph import complexity_analysis_node
         state: AgentState = {"codigo_fonte": code}
         result = complexity_analysis_node(state)
-        
+
         assert result["complexidade_ciclomatica"] >= 2
 
     def test_real_example_complexity(self):
         """Complexidade do exemplo real deve ser > 1."""
         example_path = Path("examples/input_example.sql")
         code = example_path.read_text()
-        
+
         from agent.graph import complexity_analysis_node
         state: AgentState = {"codigo_fonte": code}
         result = complexity_analysis_node(state)
-        
+
         assert result["complexidade_ciclomatica"] >= 3
 
 
@@ -121,23 +122,23 @@ class TestRAGRetrievalNode:
     def test_retrieval_with_issues(self):
         """Recuperação deve considerar issues estáticas."""
         from agent.retriever import PLSQLRetriever
-        
+
         retriever = PLSQLRetriever()
         result = retriever.retrieve(
             "SELECT * FROM DUAL;",
             [{"linha": 1, "severidade": "media", "descricao": "SELECT *", "regra": "SELECT_STAR"}]
         )
-        
+
         assert result is not None
         assert "documentos" in result
 
     def test_retrieval_without_issues(self):
         """Recuperação deve funcionar mesmo sem issues."""
         from agent.retriever import PLSQLRetriever
-        
+
         retriever = PLSQLRetriever()
         result = retriever.retrieve("SELECT DUMMY FROM DUAL;", [])
-        
+
         assert result is not None
         assert "documentos" in result
 
@@ -148,7 +149,7 @@ class TestGenerateReportNode:
     def test_generate_report_success(self):
         """Relatório deve conter todos os dados."""
         from agent.graph import generate_report_node
-        
+
         state: AgentState = {
             "caminho_arquivo": "examples/input_example.sql",
             "issues_estaticos": [
@@ -157,9 +158,9 @@ class TestGenerateReportNode:
             "complexidade_ciclomatica": 2,
             "parecer_llm": "**Análise:** Código deve ser revisado.",
         }
-        
+
         result = generate_report_node(state)
-        
+
         report = result["relatorio_final"]
         assert "# Relatório de Revisão" in report
         assert "input_example.sql" in report
@@ -169,13 +170,13 @@ class TestGenerateReportNode:
     def test_generate_report_with_error(self):
         """Relatório deve mostrar erro se houver."""
         from agent.graph import generate_report_node
-        
+
         state: AgentState = {
             "erro": "Erro ao ler arquivo: arquivo inexistente",
         }
-        
+
         result = generate_report_node(state)
-        
+
         assert "# Erro na revisão" in result["relatorio_final"]
         assert "arquivo inexistente" in result["relatorio_final"]
 
@@ -203,22 +204,22 @@ class TestIntegrationFlow:
         """Fluxo completo até geração de relatório sem LLM."""
         example_path = Path("examples/input_example.sql")
         sql_content = example_path.read_text()
-        
-        from agent.tools import run_static_checks
+
         from agent.graph import complexity_analysis_node, generate_report_node
-        
+        from agent.tools import run_static_checks
+
         state: AgentState = {
             "caminho_arquivo": str(example_path),
             "codigo_fonte": sql_content,
         }
-        
+
         # Simula os nós determinísticos
         state["issues_estaticos"] = run_static_checks(sql_content)
         state.update(complexity_analysis_node(state))
         state["parecer_llm"] = "**Análise:** Código simples."
-        
+
         result = generate_report_node(state)
-        
+
         assert "relatorio_final" in result
         assert "# Relatório de Revisão" in result["relatorio_final"]
         assert "input_example.sql" in result["relatorio_final"]
