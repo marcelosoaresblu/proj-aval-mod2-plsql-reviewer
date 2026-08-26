@@ -128,3 +128,70 @@ Ver [`docs/rag_strategy.md`](docs/rag_strategy.md) para detalhes sobre:
 - Base de documentação (6 documentos sobre exceções, cursores, transações, performance, etc.)
 - Chunking, indexação e recuperação por keywords
 - Fontes externas e pipelines de recuperação
+
+## Automação com n8n (Low-Code/No-Code)
+
+O agente pode ser orquestrado via **n8n** para integração com sistemas de CI/CD, monitoramento de diretórios ou webhooks.
+
+### Pré-requisitos
+
+- Node.js (v14+)
+- n8n instalado globalmente: `npm install -g n8n`
+- Discord Webhook URL (opcional, para notificações)
+
+### Configuração Rápida
+
+```bash
+# 1. Configurar o wrapper n8n
+chmod +x setup_n8n.sh
+./setup_n8n.sh
+
+# 2. Iniciar o n8n
+cd n8n_workflows
+export DISCORD_WEBHOOK_URL="seu_webhook_discord"  # opcional
+n8n start --tunnel
+```
+
+### Importar Workflow no n8n
+
+1. Acesse `http://localhost:5678`
+2. Clique em **"Import from File"**
+3. Selecione `n8n_workflows/n8n_workflow.json`
+4. Clique no ícone **play** (▶️) no canto superior direito do nó **Webhook Recebedor** para ativar
+
+### Testar via Webhook
+
+```bash
+curl -X POST http://localhost:5678/webhook/webhook-plsql-review \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "file_path": "examples/input_example.sql",
+    "output_file": "/tmp/relatorio.md"
+  }'
+```
+
+**Resposta esperada**:
+```
+Análise concluída com sucesso!
+```
+
+### Usando o Wrapper Python Diretamente
+
+O wrapper `n8n_agent_wrapper.py` pode ser chamado diretamente:
+
+```bash
+# Com saída em arquivo
+python n8n_agent_wrapper.py examples/input_example.sql --output relatorio.md
+
+# Com saída em JSON (para processamento por outros sistemas)
+python n8n_agent_wrapper.py examples/input_example.sql --json
+```
+
+### Arquivos do n8n
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `n8n_agent_wrapper.py` | Wrapper Python para executar o agente |
+| `n8n_workflows/n8n_workflow.json` | Workflow com webhook |
+| `n8n_workflows/n8n_workflow_watch.json` | Workflow com monitoramento de diretório |
+| `n8n_workflows/.env` | Variáveis de ambiente do n8n |

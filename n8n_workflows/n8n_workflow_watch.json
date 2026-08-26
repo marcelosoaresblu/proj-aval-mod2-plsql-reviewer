@@ -1,0 +1,67 @@
+{
+  "name": "Monitor PL/SQL - Watch Directory",
+  "nodes": [
+    {
+      "parameters": {
+        "watchPath": "/path/to/monitor/sql",
+        "pollInterval": 60,
+        "eventTypes": ["create"],
+        "filePattern": "*.{sql,pck,pkb,pks,prc,fnc}"
+      },
+      "id": "watch-folder",
+      "name": "Monitorar Diretório",
+      "type": "n8n-nodes-base.watchDirectory",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "command": "python3 n8n_agent_wrapper.py {{ $json.file }} --output relatorio_{{ $json.file.split('/').pop() }}.md",
+        "options": {
+          "timeout": 120
+        }
+      },
+      "id": "execute-agent",
+      "name": "Executar Agente",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "destination": "discord webhook",
+        "webhookUrl": "={{ $vars.discord_webhook_url }}",
+        "text": "## 📁 Novo Arquivo PL/SQL Identificado\n\n**Arquivo:** {{ $json.file }}\n**Status:** {{ $json.success ? '✅ Análise concluída' : '❌ Falha na análise' }}\n\n{{ $json.report_content ? '📄 **Resumo do Relatório:**\n' + $json.report_content.slice(0, 1000) + '...' : '⚠️ Nenhum relatório gerado' }}"
+      },
+      "id": "notify-discord",
+      "name": "Notificar Discord",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Monitorar Diretório": {
+      "main": [
+        [
+          {
+            "node": "Executar Agente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Executar Agente": {
+      "main": [
+        [
+          {
+            "node": "Notificar Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
