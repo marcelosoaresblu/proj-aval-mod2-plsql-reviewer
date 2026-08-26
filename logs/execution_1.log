@@ -1,0 +1,36 @@
+﻿python : {"timestamp": "2026-08-25T20:11:45.506586+00:00", "level": 
+"INFO", "logger": "plsql_reviewer", "correlation_id": "", 
+"message": "InÝcio do n¾ read_file_node", "metadata": 
+{"correlation_id": "", "caminho_arquivo": 
+"examples/input_example.sql"}}
+No linha:1 caractere:1
++ python -m agent.main examples/input_example.sql --saida 
+logs/report_1 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~
+    + CategoryInfo          : NotSpecified: ({"timestamp": "..._exa 
+   mple.sql"}}:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{"timestamp": "2026-08-25T20:11:45.507179+00:00", "level": "INFO", 
+"logger": "plsql_reviewer", "correlation_id": "", "message": 
+"Arquivo lido com sucesso", "metadata": {"correlation_id": "", 
+"tamanho_bytes": 734}}
+{"timestamp": "2026-08-25T20:11:45.510329+00:00", "level": "INFO", 
+"logger": "plsql_reviewer", "correlation_id": "", "message": 
+"Anßlise de complexidade concluÝda", "metadata": {"correlation_id": 
+"", "complexidade": 6, "pontos_decisao": ["L13: IF", "L14: LOOP", 
+"L14: FOR", "L18: LOOP", "L25: IF"]}}
+{"timestamp": "2026-08-25T20:11:45.511780+00:00", "level": "INFO", 
+"logger": "plsql_reviewer", "correlation_id": "", "message": 
+"Anßlise estßtica concluÝda", "metadata": {"correlation_id": "", 
+"total_issues": 7, "caminho_arquivo": "examples/input_example.sql"}}
+{"timestamp": "2026-08-25T20:11:45.513592+00:00", "level": "INFO", 
+"logger": "plsql_reviewer", "correlation_id": "", "message": 
+"InÝcio do LLM review", "metadata": {"correlation_id": "", "model": 
+"groq/compound-mini"}}
+{"timestamp": "2026-08-25T20:12:00.020021+00:00", "level": "INFO", 
+"logger": "plsql_reviewer", "correlation_id": "", "message": "LLM 
+review concluÝdo", "metadata": {"correlation_id": "", 
+"tamanho_resposta": 6190}}
+Relat¾rio salvo em: logs/report_1.md
