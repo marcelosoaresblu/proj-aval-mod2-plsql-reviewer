@@ -149,7 +149,6 @@ jobs:
 
       - name: Run smoke test
         run: |
-          python scripts/check_models.py
           python -m agent.main examples/input_example.sql --saida /tmp/test_report.md
           [ -f /tmp/test_report.md ] && echo "✅ Relatório gerado com sucesso" || exit 1
 

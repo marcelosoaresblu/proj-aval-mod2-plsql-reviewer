@@ -250,5 +250,25 @@ class APIFallback:
         """Obtém todos os provedores disponíveis."""
         return self.providers.copy()
 
+    def list_available_models(self) -> list[str]:
+        """Lista modelos disponíveis da API Groq (se a chave estiver configurada).
+        
+        Retorna lista com IDs dos modelos disponíveis na conta do usuário.
+        Exemplo: ['groq/compound-mini', 'groq/compound', 'qwen/qwen3.6-27b']
+        """
+        try:
+            from groq import Groq
+            
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                return []
+            
+            client = Groq(api_key=api_key)
+            models = client.models.list()
+            return [m.id for m in models.data]
+        except Exception:
+            # Se a API Groq não estiver disponível, retorna lista vazia
+            return []
+
 
 api_fallback = APIFallback()

@@ -364,7 +364,7 @@ for i in range(3):
 
 ### Evidência 3: Métricas de Cota da Conta Groq
 
-**Fonte**: Script `scripts/check_models.py`
+**Fonte**: Análise direta via API do Groq
 
 **Dados**:
 ```

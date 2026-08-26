@@ -14,7 +14,6 @@
 - `agent/graph.py` (adicionado edge `save_history → generate_report`)
 - `agent/integrations.py` (correção de jitter no backoff)
 - `docs/available_models.md` (documentação de modelos)
-- `scripts/check_models.py` (utilitário de verificação)
 - `.github/workflows/pipeline.yml` (CI/CD completo)
 - Configurações: `pytest.ini`, `ruff.toml`, `pyproject.toml`, `requirements.txt`
 
