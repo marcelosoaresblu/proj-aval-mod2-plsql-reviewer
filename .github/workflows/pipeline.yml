@@ -1,0 +1,208 @@
+name: Pipeline Completo - CI/CD
+
+on:
+  push:
+    branches: [main, develop, feature/*, bugfix/*]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install ruff
+          pip list
+
+      - name: Run ruff lint
+        run: |
+          ruff check .
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install mypy
+          pip list
+
+      - name: Run mypy type check (advisory)
+        run: |
+          mypy agent/ --ignore-missing-imports || echo "⚠️ Type check completed with warnings (advisory)"
+
+  test-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip list
+
+      - name: Run security tests
+        run: |
+          pytest tests/test_security.py -v --tb=short
+
+      - name: Run agent tests
+        run: |
+          pytest tests/test_agent.py -v --tb=short
+
+      - name: Run integration tests
+        run: |
+          pytest tests/test_integrations.py -v --tb=short
+
+  test-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip list
+
+      - name: Run acceptance tests
+        run: |
+          pytest tests/test_acceptance.py -v --tb=short
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip list
+
+      - name: Run E2E tests
+        run: |
+          pytest tests/test_e2e.py -v --tb=short
+
+  build-and-validate:
+    runs-on: ubuntu-latest
+    needs: [lint, test-unit, test-acceptance, test-e2e]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip list
+
+      - name: Validate agent imports
+        run: |
+          python -c "from agent.graph import build_graph; print('Grafo importado com sucesso')"
+          python -c "from agent.integrations import integration_manager, api_fallback; print('Integrações importadas com sucesso')"
+
+      - name: Run smoke test
+        run: |
+          echo "=== Smoke Test ==="
+          echo "Verificando arquivo de entrada..."
+          if [ -f examples/input_example.sql ]; then
+            echo "✅ Arquivo de entrada existe ($(wc -c < examples/input_example.sql) bytes)"
+          else
+            echo "❌ Arquivo de entrada não encontrado"
+            exit 1
+          fi
+          echo ""
+          echo "Executando agente..."
+          python -m agent.main examples/input_example.sql --saida /tmp/test_report.md 2>&1 | tee /tmp/smoke_test.log
+          echo ""
+          echo "Verificando saída..."
+          if [ -f /tmp/test_report.md ]; then
+            echo "✅ Relatório gerado com sucesso"
+            echo "Tamanho do relatório: $(wc -c < /tmp/test_report.md) bytes"
+          else
+            echo "❌ Erro: Relatório não foi gerado"
+            echo "Logs:"
+            cat /tmp/smoke_test.log
+            exit 1
+          fi
+
+      - name: Run full test suite
+        run: |
+          pytest tests/ -v --tb=short
+
+      - name: Build package
+        run: |
+          python -m build
+          echo "✅ Build realizado com sucesso"
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [build-and-validate]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip list
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ --cov=agent --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-coverage

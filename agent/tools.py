@@ -14,7 +14,7 @@ executam nada fora do escopo do arquivo informado.
 
 import os
 import re
-from typing import List
+
 from agent.state import StaticIssue
 
 # Extensões aceitas -> evita que o agente tente ler arquivos arbitrários
@@ -57,7 +57,7 @@ def read_sql_file(caminho: str) -> str:
             f"Arquivo muito grande ({tamanho} bytes). Limite: {TAMANHO_MAXIMO_BYTES} bytes."
         )
 
-    with open(caminho, "r", encoding="utf-8", errors="replace") as f:
+    with open(caminho, encoding="utf-8", errors="replace") as f:
         return f.read()
 
 
@@ -157,19 +157,19 @@ def get_best_practices(achado: str) -> dict:
             "nivel": "baixa",
         },
     }
-    
+
     # Validação de entrada (payload/schema)
     if not isinstance(achado, str) or not achado.strip():
         raise ValueError("Parâmetro 'achado' deve ser uma string não vazia")
-    
+
     achado_normalizado = achado.upper().replace(" ", "_")
-    
+
     # Validação: achado deve existir na base de boas práticas
     if achado_normalizado not in PRATICS_DB:
         raise ValueError(
             f"Achado '{achado}' não reconhecido. Use um dos tipos: {list(PRATICS_DB.keys())}"
         )
-    
+
     try:
         # Simulação de chamada a serviço externo via MCP
         # Em produção: client = MCPClient(); return client.get_practices(achado)
@@ -179,9 +179,9 @@ def get_best_practices(achado: str) -> dict:
         raise RuntimeError(f"Falha ao obter boas práticas: {e}") from e
 
 
-def run_static_checks(codigo: str) -> List[StaticIssue]:
+def run_static_checks(codigo: str) -> list[StaticIssue]:
     """Aplica heurísticas simples linha a linha e retorna os achados."""
-    issues: List[StaticIssue] = []
+    issues: list[StaticIssue] = []
     linhas = codigo.splitlines()
 
     for numero, linha in enumerate(linhas, start=1):

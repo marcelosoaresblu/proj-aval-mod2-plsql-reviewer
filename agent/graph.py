@@ -27,34 +27,28 @@ e devolve APENAS as chaves do estado que alterou (LangGraph faz o merge).
 import os
 import re
 from typing import Literal
-from langgraph.graph import StateGraph, END
-from langchain_groq import ChatGroq
 
-from agent.state import AgentState
-from agent.tools import read_sql_file, run_static_checks, get_best_practices
-from agent.retriever import PLSQLRetriever
+from langgraph.graph import END, StateGraph
+
 from agent.autonomy import (
-    can_execute,
-    requires_approval,
     validate_autonomy,
-    AutonomyLevel,
-)
-from agent.observability import (
-    logger,
-    trace_manager,
-    metrics,
-    audit,
-    set_correlation_id,
-    get_correlation_id,
-    generate_correlation_id,
 )
 from agent.integrations import (
-    integration_manager,
-    api_fallback,
+    CircuitBreakerError,
     IntegrationError,
     TimeoutError,
-    CircuitBreakerError,
+    api_fallback,
+    integration_manager,
 )
+from agent.observability import (
+    get_correlation_id,
+    logger,
+    metrics,
+    trace_manager,
+)
+from agent.retriever import PLSQLRetriever
+from agent.state import AgentState
+from agent.tools import get_best_practices, read_sql_file, run_static_checks
 
 # Modelo usado para a revisão qualitativa.
 # A chave é lida automaticamente da variável de ambiente GROQ_API_KEY.
@@ -80,7 +74,7 @@ Não invente comportamento do sistema que não esteja no código."""
 def read_file_node(state: AgentState) -> dict:
     """Nó 1 (determinístico): lê o arquivo de entrada usando a ferramenta de leitura."""
     correlation_id = get_correlation_id()
-    
+
     # Log de início do nó
     logger.info(
         "Início do nó read_file_node",
@@ -89,16 +83,16 @@ def read_file_node(state: AgentState) -> dict:
             "caminho_arquivo": state.get("caminho_arquivo"),
         }
     )
-    
+
     # Iniciar span de trace
     span_id = trace_manager.start_span("read_file_node")
-    
+
     try:
         codigo = read_sql_file(state["caminho_arquivo"])
-        
+
         # Finalizar span com sucesso
         trace_manager.end_span(span_id, status="success")
-        
+
         # Log de sucesso
         logger.info(
             "Arquivo lido com sucesso",
@@ -107,15 +101,15 @@ def read_file_node(state: AgentState) -> dict:
                 "tamanho_bytes": len(codigo),
             }
         )
-        
+
         # Registrar métrica
         metrics.count("read_file.success")
-        
+
         return {"codigo_fonte": codigo, "erro": None}
     except Exception as e:
         # Finalizar span com erro
         trace_manager.end_span(span_id, status="error", error=str(e))
-        
+
         # Log de erro
         logger.error(
             "Erro ao ler arquivo",
@@ -124,10 +118,10 @@ def read_file_node(state: AgentState) -> dict:
                 "erro": str(e),
             }
         )
-        
+
         # Registrar métrica
         metrics.count("read_file.error")
-        
+
         return {"erro": f"Erro ao ler arquivo: {e}"}
 
 
@@ -135,13 +129,13 @@ def static_analysis_node(state: AgentState) -> dict:
     """Nó 2 (determinístico): roda as checagens de heurísticas (regex) sobre o código lido.
     Detecta padrões conhecidos: WHEN OTHERS sem RAISE, SELECT *, COMMIT, valores hardcoded."""
     correlation_id = get_correlation_id()
-    
+
     span_id = trace_manager.start_span("static_analysis_node")
-    
+
     try:
         issues = run_static_checks(state["codigo_fonte"])
         trace_manager.end_span(span_id, status="success")
-        
+
         logger.info(
             "Análise estática concluída",
             metadata={
@@ -150,9 +144,9 @@ def static_analysis_node(state: AgentState) -> dict:
                 "caminho_arquivo": state.get("caminho_arquivo"),
             }
         )
-        
+
         metrics.count("static_analysis.nodes", len(issues))
-        
+
         return {"issues_estaticos": issues}
     except Exception as e:
         trace_manager.end_span(span_id, status="error", error=str(e))
@@ -167,14 +161,14 @@ def complexity_analysis_node(state: AgentState) -> dict:
     """Nó 2b (determinístico): análise de complexidade ciclomática (regex).
     Conta pontos de decisão (IF, ELSIF, ELSE, CASE, WHEN, LOOP, FOR, WHILE)."""
     correlation_id = get_correlation_id()
-    
+
     span_id = trace_manager.start_span("complexity_analysis_node")
-    
+
     try:
         codigo = state["codigo_fonte"]
         decisoes = 0
         linhas_decisao = []
-        
+
         padroes_decisao = [
             (r"\bIF\b", "IF"),
             (r"\bELSIF\b", "ELSIF"),
@@ -185,17 +179,17 @@ def complexity_analysis_node(state: AgentState) -> dict:
             (r"\bFOR\b", "FOR"),
             (r"\bWHILE\b", "WHILE"),
         ]
-        
+
         for num, linha in enumerate(codigo.splitlines(), start=1):
             for padrao, nome in padroes_decisao:
                 if len(linhas_decisao) < 5 and __import__('re').search(padrao, linha, re.IGNORECASE):
                     decisoes += 1
                     linhas_decisao.append(f"L{num}: {nome}")
-        
+
         # Estimativa básica: complexidade = 1 + número de decisões
         complexidade = 1 + decisoes
         trace_manager.end_span(span_id, status="success")
-        
+
         logger.info(
             "Análise de complexidade concluída",
             metadata={
@@ -204,9 +198,9 @@ def complexity_analysis_node(state: AgentState) -> dict:
                 "pontos_decisao": linhas_decisao,
             }
         )
-        
+
         metrics.gauge("complexity_ciclomatica", complexidade)
-        
+
         return {
             "complexidade_ciclomatica": complexidade,
             "pontos_decisao": linhas_decisao,
@@ -234,15 +228,15 @@ def rag_retrieval_node(state: AgentState) -> dict:
     """
     if state.get("erro"):
         return {}
-    
+
     try:
         # Obtem contexto extra e histórico do state (se existir)
         contexto_extra = state.get("contexto_extra", None)
         historico = state.get("historico_interacoes", [])
-        
+
         # issues_estaticos pode não estar presente se a análise ainda não rodou
         issues = state.get("issues_estaticos", [])
-        
+
         retriever = PLSQLRetriever(historico=historico)
         rag_result = retriever.retrieve(
             state["codigo_fonte"],
@@ -268,13 +262,13 @@ def llm_review_node(state: AgentState) -> dict:
     - Fallback para Anthropic se Groq falhar
     """
     correlation_id = get_correlation_id()
-    
+
     # Validar autonomia da chamada ao LLM
     validation = validate_autonomy("llm_review", {"model": MODEL_NAME, "max_tokens": 1500})
-    
+
     if not validation["allowed"]:
         return {"erro": f"Ação bloqueada: {validation['reason']}"}
-    
+
     # Log início LLM
     logger.info(
         "Início do LLM review",
@@ -283,30 +277,30 @@ def llm_review_node(state: AgentState) -> dict:
             "model": MODEL_NAME,
         }
     )
-    
+
     # Obter provedor (Groq ou fallback para Anthropic)
     provider = api_fallback.get_provider()
     if not provider:
         return {
             "erro": "Nenhum provedor de API disponível (GROQ_API_KEY ou ANTHROPIC_API_KEY required)"
         }
-    
+
     try:
         # Tenta Groq
         from langchain_groq import ChatGroq
         llm = ChatGroq(model=MODEL_NAME, max_tokens=1500)
-        
+
         resumo_issues = "\n".join(
             f"- Linha {i['linha']} [{i['severidade']}]: {i['descricao']}"
             for i in state["issues_estaticos"]
         ) or "Nenhum achado automático."
-        
+
         contexto_complexidade = ""
         if "complexidade_ciclomatica" in state:
             contexto_complexidade = f"""
 Complexidade ciclomática estimada: {state['complexidade_ciclomatica']}
 Pontos de decisão identificados: {', '.join(state['pontos_decisao']) if state.get('pontos_decisao') else 'Nenhum'}"""
-        
+
         # Contexto RAG recuperado
         contexto_rag = ""
         if state.get("rag_result") and state["rag_result"].get("documentos"):
@@ -316,14 +310,14 @@ Pontos de decisão identificados: {', '.join(state['pontos_decisao']) if state.g
                 contexto_rag += f"\n--- {doc['titulo']} (score: {doc['score']}) ---\n"
                 contexto_rag += f"Topico: {doc['topico']}\n"
                 contexto_rag += f"Conteudo: {doc['conteudo']}\n"
-        
+
         # Contexto extra (configurações do usuário, preferências, etc.)
         contexto_extra = ""
         if state.get("contexto_extra"):
-            contexto_extra = f"\n\n=== CONTEXTO EXTRA (CONFIGURAÇÕES) ===\n"
+            contexto_extra = "\n\n=== CONTEXTO EXTRA (CONFIGURAÇÕES) ===\n"
             for chave, valor in state["contexto_extra"].items():
                 contexto_extra += f"- {chave}: {valor}\n"
-        
+
         prompt = f"""Você é um revisor sênior de código PL/SQL, especializado em
 sistemas de ERP/PCP/MRP. Você recebe um trecho de código, uma lista de
 achados de uma análise estática automática (heurísticas simples), documentação
@@ -370,7 +364,7 @@ Achados da análise estática automática:
             ],
             timeout=30.0,
         )
-        
+
         # Log sucesso LLM
         logger.info(
             "LLM review concluído",
@@ -379,18 +373,18 @@ Achados da análise estática automática:
                 "tamanho_resposta": len(resposta.content),
             }
         )
-        
+
         metrics.timing("llm_review.duration", 100)  # Simulação
-        
+
         return {"parecer_llm": resposta.content}
-    
+
     except CircuitBreakerError as e:
         logger.error(
             "Circuit breaker aberto para LLM",
             metadata={"correlation_id": correlation_id, "service": "llm"}
         )
         return {"erro": f"Circuit breaker aberto: {e}"}
-    
+
     except TimeoutError as e:
         logger.error(
             "Timeout na chamada ao LLM",
@@ -416,7 +410,7 @@ Achados da análise estática automática:
             except Exception as e2:
                 return {"erro": f"Timeout e fallback falharam: {e2}"}
         return {"erro": f"Timeout: {e}"}
-    
+
     except IntegrationError as e:
         logger.error(
             "Erro de integração com LLM",
@@ -434,7 +428,7 @@ def save_history_node(state: AgentState) -> dict:
     - Contexto para próximas execuções
     """
     historico = state.get("historico_interacoes", [])
-    
+
     # Adiciona a interação atual (apenas a mensagem do LLM)
     if state.get("parecer_llm"):
         historico.append({
@@ -442,7 +436,7 @@ def save_history_node(state: AgentState) -> dict:
             "content": state["parecer_llm"],
             "timestamp": "2026-08-19T00:00:00Z",  # Em produção, usar datetime.now().isoformat()
         })
-    
+
     return {"historico_interacoes": historico}
 
 
@@ -466,7 +460,7 @@ def generate_report_node(state: AgentState) -> dict:
                 "Bloco EXCEPTION": "EXPLICIT_EXCEPTION",
                 "Cursor declarado": "CURSOR_NO_HANDLING",
             }
-            
+
             for padrao, achado in achado_map.items():
                 if padrao.lower() in issue["descricao"].lower():
                     pratica = get_best_practices(achado)
@@ -550,16 +544,16 @@ def build_graph():
     graph.add_edge("read_file", "heuristic_check")
     graph.add_edge("read_file", "complexity_check")
     graph.add_edge("read_file", "rag_retrieval")
-    
+
     # Ambos os nós paralelos convergem para llm_review (decisão do modelo)
     graph.add_edge("heuristic_check", "llm_review")
     graph.add_edge("complexity_check", "llm_review")
     graph.add_edge("rag_retrieval", "llm_review")
-    
+
     # Após o LLM, salva o histórico
     graph.add_edge("llm_review", "save_history")
     graph.add_edge("save_history", "generate_report")
-    
+
     # Ramificação condicional: se erro, pula para generate_report (sem LLM e save_history)
     graph.add_conditional_edges(
         "llm_review",
@@ -569,7 +563,7 @@ def build_graph():
             "normal_path": "save_history",
         },
     )
-    
+
     # Parada antecipada: se erro no read_file, pula direto para generate_report
     graph.add_conditional_edges(
         "read_file",
@@ -579,7 +573,7 @@ def build_graph():
             "normal_path": "heuristic_check",
         },
     )
-    
+
     graph.add_edge("generate_report", END)
 
     return graph.compile()

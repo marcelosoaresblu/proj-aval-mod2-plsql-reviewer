@@ -10,9 +10,8 @@ Estrutura de autonomy levels:
 - LEVEL_3 (bloqueado): Ações proibidas, requerem intervenção humana explícita
 """
 
-import os
 from enum import IntEnum
-from typing import Dict, Any, Optional
+from typing import Any
 
 
 class AutonomyLevel(IntEnum):
@@ -25,7 +24,7 @@ class AutonomyLevel(IntEnum):
 
 class AutonomyPolicy:
     """Política de autonomia para o agente revisor de PL/SQL."""
-    
+
     # Custo estimado por operação (em tokens)
     COSTS = {
         "read_file": 0,                    # Leitura local
@@ -36,7 +35,7 @@ class AutonomyPolicy:
         "get_best_practices": 0,           # Base local
         "generate_report": 0,              # Formatação
     }
-    
+
     # Risco estimado por operação
     RISKS = {
         "read_file": "low",                # Acesso a arquivos locais
@@ -47,7 +46,7 @@ class AutonomyPolicy:
         "get_best_practices": "low",       # Base local
         "generate_report": "low",          # Geração local
     }
-    
+
     # Limites de custo por nível (exclusivo no limite superior)
     # Ex: AUTO até 1499, MONITORED até 4999, etc.
     COST_LIMITS = {
@@ -56,7 +55,7 @@ class AutonomyPolicy:
         AutonomyLevel.APPROVED: 14999,     # Até 14999 tokens
         AutonomyLevel.BLOCKED: float('inf'),  # Ilimitado (mas bloqueado)
     }
-    
+
     # Ações que nunca são automáticas
     FORBIDDEN_ACTIONS = {
         "execute_sql",        # Executar SQL no banco
@@ -65,13 +64,13 @@ class AutonomyPolicy:
         "deploy",             # Deploy em produção
         "send_notification",  # Enviar notificações externas
     }
-    
+
     # Ações que sempre requerem aprovação
     ALWAYS_APPROVE = {
         "deploy_production",  # Deploy em produção
         "modify_schema",      # Modificar schema do banco
     }
-    
+
     # Variáveis de ambiente que nunca devem ser expostas
     SENSITIVE_ENV_VARS = [
         "GROQ_API_KEY",
@@ -81,7 +80,7 @@ class AutonomyPolicy:
     ]
 
 
-def get_autonomy_level(action: str, params: Optional[Dict[str, Any]] = None) -> AutonomyLevel:
+def get_autonomy_level(action: str, params: dict[str, Any] | None = None) -> AutonomyLevel:
     """Determina o nível de autonomia para uma ação.
     
     Args:
@@ -94,25 +93,25 @@ def get_autonomy_level(action: str, params: Optional[Dict[str, Any]] = None) -> 
     # Verificar se é uma ação proibida
     if action in AutonomyPolicy.FORBIDDEN_ACTIONS:
         return AutonomyLevel.BLOCKED
-    
+
     # Verificar se é uma ação que sempre requer aprovação
     if action in AutonomyPolicy.ALWAYS_APPROVE:
         return AutonomyLevel.APPROVED
-    
+
     # Calcular custo da ação
     cost = AutonomyPolicy.COSTS.get(action, 100)
-    
+
     # Determinar nível baseado no custo (ordem crescente)
     # O primeiro limite que o custo atinge ou excede define o nível
     for level, limit in sorted(AutonomyPolicy.COST_LIMITS.items()):
         if cost <= limit:
             return level
-    
+
     # Se o custo excede todos os limites, é BLOCKED
     return AutonomyLevel.BLOCKED
 
 
-def can_execute(action: str, params: Optional[Dict[str, Any]] = None) -> bool:
+def can_execute(action: str, params: dict[str, Any] | None = None) -> bool:
     """Verifica se uma ação pode ser executada automaticamente.
     
     Args:
@@ -126,7 +125,7 @@ def can_execute(action: str, params: Optional[Dict[str, Any]] = None) -> bool:
     return level <= AutonomyLevel.MONITORED
 
 
-def requires_approval(action: str, params: Optional[Dict[str, Any]] = None) -> bool:
+def requires_approval(action: str, params: dict[str, Any] | None = None) -> bool:
     """Verifica se uma ação requer aprovação humana.
     
     Args:
@@ -140,7 +139,7 @@ def requires_approval(action: str, params: Optional[Dict[str, Any]] = None) -> b
     return level >= AutonomyLevel.APPROVED
 
 
-def is_blocked(action: str, params: Optional[Dict[str, Any]] = None) -> bool:
+def is_blocked(action: str, params: dict[str, Any] | None = None) -> bool:
     """Verifica se uma ação está bloqueada.
     
     Args:
@@ -180,16 +179,16 @@ def check_llm_action(model: str, max_tokens: int) -> AutonomyLevel:
     # LLMs com max_tokens <= 1000 são auto
     if max_tokens <= 1000:
         return AutonomyLevel.AUTO
-    
+
     # LLMs com max_tokens <= 5000 são monitorados
     if max_tokens <= 5000:
         return AutonomyLevel.MONITORED
-    
+
     # LLMs com max_tokens > 5000 requerem aprovação
     return AutonomyLevel.APPROVED
 
 
-def validate_autonomy(action: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def validate_autonomy(action: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
     """Valida a autonomia de uma ação e retorna informações detalhadas.
     
     Args:
@@ -206,16 +205,16 @@ def validate_autonomy(action: str, params: Optional[Dict[str, Any]] = None) -> D
     level = get_autonomy_level(action, params)
     allowed = level <= AutonomyLevel.MONITORED
     requires_approval = level >= AutonomyLevel.APPROVED
-    
+
     reason = f"Ação '{action}' tem nível {level.name} ({level})"
-    
+
     if action in AutonomyPolicy.FORBIDDEN_ACTIONS:
         reason = f"Ação '{action}' é proibida por política de segurança"
     elif action in AutonomyPolicy.ALWAYS_APPROVE:
         reason = f"Ação '{action}' sempre requer aprovação humana"
     elif params and params.get("max_tokens", 0) > 1000:
         reason = f"Ação '{action}' usa muitos tokens ({params.get('max_tokens')})"
-    
+
     return {
         "allowed": allowed,
         "level": level,

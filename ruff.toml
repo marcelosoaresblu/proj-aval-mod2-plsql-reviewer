@@ -1,0 +1,37 @@
+# Ruff configuration for the PL/SQL Reviewer agent
+
+line-length = 100
+target-version = "py312"
+
+[lint]
+# Enable common rules only (soft linting)
+select = ["F", "I"]
+ignore = [
+    "PLR",  # Design related pylint codes
+    "C4",   # Unnecessary comprehensions
+    "B",    # flake8-bugbear (muito restritivo para testes)
+    "N",    # PEP8 naming conventions (aceita maiúsculas para constantes)
+    "UP",   # pyupgrade (pode ser muito restritivo)
+    "YTT",  # pytest-style (pode ser muito restritivo)
+    "E501", # Line too long (aceita linhas longas em docstrings)
+    "W293", # Blank line contains whitespace (aceita para docstrings)
+    "PLC0415", # import should be at top-level (aceita imports dentro de funções em testes)
+    "PT011",  # pytest.raises is too broad (aceita para testes gerais)
+    "F841",   # local variable assigned but never used (aceita em testes)
+]
+
+[lint.isort]
+known-first-party = ["agent", "tests"]
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"

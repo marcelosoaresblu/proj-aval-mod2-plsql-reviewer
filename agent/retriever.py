@@ -10,8 +10,8 @@ O RAG enriquece o contexto do LLM com:
 - Exemplos de código corrigido para problemas comuns
 """
 
-from typing import List, Dict, Any, Optional
 import re
+from typing import Any
 
 
 class PLSQLRetriever:
@@ -22,8 +22,8 @@ class PLSQLRetriever:
     - Contexto extra (configurações, preferências do usuário)
     - Documentação Oracle PL/SQL e boas práticas
     """
-    
-    def __init__(self, historico: Optional[List[Dict[str, Any]]] = None):
+
+    def __init__(self, historico: list[dict[str, Any]] | None = None):
         # Simulação de banco de dados de documentação
         # Em produção, isso usaria um vector store (ex: Chroma, FAISS)
         self._docs_db = [
@@ -145,9 +145,9 @@ Exemplo:
             },
         ]
 
-    def retrieve(self, codigo: str, issues: List[Dict[str, Any]], 
-                 contexto_extra: Optional[Dict[str, Any]] = None,
-                 historico: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    def retrieve(self, codigo: str, issues: list[dict[str, Any]],
+                 contexto_extra: dict[str, Any] | None = None,
+                 historico: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """Recupera documentos relevantes baseados no código, achados, contexto extra e histórico.
         
         Args:
@@ -171,50 +171,50 @@ Exemplo:
         # Validação de entrada
         if not isinstance(codigo, str) or not codigo.strip():
             raise ValueError("Parâmetro 'codigo' deve ser uma string não vazia")
-        
+
         if not isinstance(issues, list):
             raise ValueError("Parâmetro 'issues' deve ser uma lista")
-        
+
         if contexto_extra is not None and not isinstance(contexto_extra, dict):
             raise ValueError("Parâmetro 'contexto_extra' deve ser um dicionário ou None")
-        
+
         if historico is not None and not isinstance(historico, list):
             raise ValueError("Parâmetro 'historico' deve ser uma lista ou None")
-        
+
         documentos_relevantes = []
         queries = []
-        
+
         # Extrai keywords do código
         keywords_codigo = self._extrair_keywords(codigo)
-        
+
         # Extrai keywords dos achados
         for issue in issues:
             keywords_achado = self._extrair_keywords_da_regra(issue.get("regra", ""))
             keywords_codigo.extend(keywords_achado)
-        
+
         # Adiciona keywords do contexto extra (ex: preferências, configurações)
         if contexto_extra and "keywords" in contexto_extra:
             keywords_codigo.extend(contexto_extra["keywords"])
-        
+
         # Adiciona keywords do histórico (ex: erros frequentes, perguntas anteriores)
         if historico:
             for msg in historico:
                 if msg.get("role") == "user":
                     keywords_historico = self._extrair_keywords(msg.get("content", ""))
                     keywords_codigo.extend(keywords_historico)
-        
+
         # Remove duplicatas mantendo ordem
         keywords_unicas = list(dict.fromkeys(keywords_codigo))
-        
+
         # Busca em cada documento
         for doc in self._docs_db:
             # Score base + bonus por match de keywords
             score_base = doc["relevancia_base"]
             keywords_doc = doc["keywords"]
-            
+
             matches = sum(1 for kw in keywords_unicas if any(kw.lower() in k.lower() for k in keywords_doc))
             score_final = min(1.0, score_base + (matches * 0.05))
-            
+
             if score_final > 0.3:  # Threshold de relevância
                 documentos_relevantes.append({
                     "id": doc["id"],
@@ -223,20 +223,20 @@ Exemplo:
                     "conteudo": doc["conteudo"],
                     "score": round(score_final, 2),
                 })
-        
+
         # Ordena por score decrescente
         documentos_relevantes.sort(key=lambda x: x["score"], reverse=True)
-        
+
         return {
             "documentos": documentos_relevantes,
             "queries": keywords_unicas[:5],  # Top 5 queries
             "score": round(sum(d["score"] for d in documentos_relevantes) / max(1, len(documentos_relevantes)), 2) if documentos_relevantes else 0,
         }
 
-    def _extrair_keywords(self, texto: str) -> List[str]:
+    def _extrair_keywords(self, texto: str) -> list[str]:
         """Extrai keywords relevantes do texto."""
         keywords = []
-        
+
         # Padrões PL/SQL específicos
         padroes = [
             r"\bWHEN\s+OTHERS\b",
@@ -251,7 +251,7 @@ Exemplo:
             r"\bRAISE_APPLICATION_ERROR\b",
             r"=\s*'[A-Z0-9_]{2,}'",
         ]
-        
+
         for padrao in padroes:
             match = re.search(padrao, texto, re.IGNORECASE)
             if match:
@@ -278,13 +278,13 @@ Exemplo:
                     keywords.append("RAISE_APPLICATION_ERROR")
                 elif "hardcoded" in padrao:
                     keywords.append("HARDCODED")
-        
+
         return keywords
 
-    def _extrair_keywords_da_regra(self, regra: str) -> List[str]:
+    def _extrair_keywords_da_regra(self, regra: str) -> list[str]:
         """Extrai keywords da descrição de uma regra."""
         keywords = []
-        
+
         if "WHEN OTHERS" in regra:
             keywords.append("WHEN OTHERS")
         if "SELECT *" in regra:
@@ -297,5 +297,5 @@ Exemplo:
             keywords.append("HARDCODED")
         if "exception" in regra.lower() or "EXCEPTION" in regra:
             keywords.append("EXCEPTION")
-            
+
         return keywords
