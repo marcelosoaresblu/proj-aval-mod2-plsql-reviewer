@@ -65,7 +65,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio
           pip list
 
       - name: Run security tests
@@ -95,7 +94,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio
           pip list
 
       - name: Run acceptance tests
@@ -117,7 +115,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio
           pip list
 
       - name: Run E2E tests
@@ -197,7 +194,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
           pip list
 
       - name: Run tests with coverage
