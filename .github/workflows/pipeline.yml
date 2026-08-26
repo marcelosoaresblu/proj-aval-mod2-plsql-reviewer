@@ -149,8 +149,28 @@ jobs:
 
       - name: Run smoke test
         run: |
-          python -m agent.main examples/input_example.sql --saida /tmp/test_report.md
-          [ -f /tmp/test_report.md ] && echo "✅ Relatório gerado com sucesso" || exit 1
+          echo "=== Smoke Test ==="
+          echo "Verificando arquivo de entrada..."
+          if [ -f examples/input_example.sql ]; then
+            echo "✅ Arquivo de entrada existe ($(wc -c < examples/input_example.sql) bytes)"
+          else
+            echo "❌ Arquivo de entrada não encontrado"
+            exit 1
+          fi
+          echo ""
+          echo "Executando agente..."
+          python -m agent.main examples/input_example.sql --saida /tmp/test_report.md 2>&1 | tee /tmp/smoke_test.log
+          echo ""
+          echo "Verificando saída..."
+          if [ -f /tmp/test_report.md ]; then
+            echo "✅ Relatório gerado com sucesso"
+            echo "Tamanho do relatório: $(wc -c < /tmp/test_report.md) bytes"
+          else
+            echo "❌ Erro: Relatório não foi gerado"
+            echo "Logs:"
+            cat /tmp/smoke_test.log
+            exit 1
+          fi
 
       - name: Run full test suite
         run: |
