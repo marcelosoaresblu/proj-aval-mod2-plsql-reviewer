@@ -129,6 +129,17 @@ Ver [`docs/rag_strategy.md`](docs/rag_strategy.md) para detalhes sobre:
 - Chunking, indexação e recuperação por keywords
 - Fontes externas e pipelines de recuperação
 
+## Documentação do Sistema
+
+Ver [`docs/sistema.md`](docs/sistema.md) para instruções completas do sistema, incluindo:
+- Objetivos da tarefa e regras de comportamento
+- Restrições importantes e padrões de resposta
+- Prompts relevantes (SYSTEM_PROMPT e prompt do LLM)
+- Arquitetura do agente (fluxo LangGraph)
+- Políticas de autonomia e integrações externas
+- Estratégia RAG e observabilidade
+- Configuração e troubleshooting
+
 ## Automação com n8n (Low-Code/No-Code)
 
 O agente pode ser orquestrado via **n8n** para integração com sistemas de CI/CD, monitoramento de diretórios ou webhooks.
