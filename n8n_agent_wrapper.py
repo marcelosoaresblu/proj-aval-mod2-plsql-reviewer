@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 from agent.graph import build_graph
 
 load_dotenv()  # lê variáveis de ambiente do arquivo .env
