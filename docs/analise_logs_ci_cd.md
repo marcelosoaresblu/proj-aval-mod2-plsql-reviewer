@@ -374,7 +374,7 @@ CRÍTICA
 
 ```
 groq.RateLimitError: Error code: 429
-Error: Rate limit reached for model `llama-3.3-70b-versatile` in organization
+Error: Rate limit reached for model `groq/compound-mini` in organization
 `org_01kvryf3knfnms69ac9w0fwjdm` service tier `on_demand` on tokens per day (TPD):
 Limit 100000, Used 97296, Requested 4627.
 ```

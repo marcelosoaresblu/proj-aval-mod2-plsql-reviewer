@@ -103,7 +103,7 @@ gerado pelo agente para o exemplo acima.
   por ser suficiente para o escopo do mini-projeto e manter o código
   legível.
 - Modelo do LLM configurável via variável de ambiente `REVIEWER_MODEL`
-  (padrão: `llama-3.3-70b-versatile`), para não travar o projeto a um modelo específico.
+  (padrão: `groq/compound-mini`), para não travar o projeto a um modelo específico.
 
 ## Limitações
 

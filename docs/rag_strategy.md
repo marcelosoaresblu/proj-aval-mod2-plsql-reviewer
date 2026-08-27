@@ -214,7 +214,7 @@ def retrieve(self, codigo, issues, contexto_extra=None, historico=None):
 
 | Fonte | Tipo | Recuperação | Atualização |
 |-------|------|-------------|-------------|
-| `llama-3.3-70b-versatile` | LLM | API | Automática |
+| `groq/compound-mini` | LLM | API | Automática |
 
 **Como recuperadas:**
 - `langchain-groq` wrapper

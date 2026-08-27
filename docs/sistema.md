@@ -243,7 +243,7 @@ read_file -> [heuristic_check, complexity_check, rag_retrieval] (paralelo)
 ### Nó 3: llm_review_node
 - **Responsabilidade**: Parecer qualitativo do LLM
 - **Ferramenta**: `ChatGroq` (Groq API)
-- **Modelo**: `llama-3.3-70b-versatile` (configurável)
+- **Modelo**: `groq/compound-mini` (configurável)
 - **Entrada**: Código + issues + RAG + contexto extra
 - **Retorna**: `parecer_llm`
 
@@ -286,7 +286,7 @@ read_file -> [heuristic_check, complexity_check, rag_retrieval] (paralelo)
 
 ### Groq API
 - **Wrapper**: `langchain-groq`
-- **Modelo padrão**: `llama-3.3-70b-versatile`
+- **Modelo padrão**: `groq/compound-mini`
 - **Configuração**: `GROQ_API_KEY` via `.env`
 - **Timeout**: 30 segundos
 - **Retry**: 2 tentativas + backoff exponencial
@@ -366,7 +366,7 @@ read_file -> [heuristic_check, complexity_check, rag_retrieval] (paralelo)
 | Variável | Obrigatória | Descrição |
 |----------|-------------|-----------|
 | `GROQ_API_KEY` | Sim | Chave da API Groq |
-| `REVIEWER_MODEL` | Não | Modelo a usar (padrão: `llama-3.3-70b-versatile`) |
+| `REVIEWER_MODEL` | Não | Modelo a usar (padrão: `groq/compound-mini`) |
 
 ### Arquivo .env
 

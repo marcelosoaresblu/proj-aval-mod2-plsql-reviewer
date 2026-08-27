@@ -220,7 +220,7 @@ class APIFallback:
                 "name": "groq",
                 "enabled": True,
                 "api_key": os.getenv("GROQ_API_KEY"),
-                "model": os.getenv("REVIEWER_MODEL", "llama-3.3-70b-versatile"),
+                "model": os.getenv("REVIEWER_MODEL", "groq/compound-mini"),
             })
 
         # Anthropic (fallback)

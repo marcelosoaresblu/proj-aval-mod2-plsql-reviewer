@@ -7,7 +7,7 @@
 | Linguagem | Python 3.12+ | Linguagem do módulo; boa integração com LangGraph |
 | Orquestração do agente | [LangGraph](https://github.com/langchain-ai/langgraph) | Modela o fluxo como grafo de estados com estado compartilhado |
 | Integração com LLM | [langchain-groq](https://pypi.org/project/langchain-groq/) | Wrapper oficial do LangChain para API da Groq |
-| Modelo de LLM | `llama-3.3-70b-versatile` (padrão) | Alta performance, baixa latência, custo acessível |
+| Modelo de LLM | `groq/compound-mini` (padrão) | Alta performance, baixa latência, custo acessível |
 | Análise estática | `re` (regex, stdlib) | Suficiente para heurísticas simples do escopo |
 | CLI | `argparse` (stdlib) | Simples, sem dependências extras |
 | Configuração | `python-dotenv` | Carregamento de variáveis de ambiente |
@@ -27,7 +27,7 @@ Demais dependências (`os`, `re`, `argparse`, `typing`) são da stdlib.
 | Variável | Obrigatória | Descrição |
 |----------|-------------|-----------|
 | `GROQ_API_KEY` | Sim | Chave da API Groq (obtida em https://console.groq.com/keys) |
-| `REVIEWER_MODEL` | Não | Modelo a usar. Padrão: `llama-3.3-70b-versatile` |
+| `REVIEWER_MODEL` | Não | Modelo a usar. Padrão: `groq/compound-mini` |
 
 ## Como rodar
 
