@@ -103,7 +103,7 @@ gerado pelo agente para o exemplo acima.
   por ser suficiente para o escopo do mini-projeto e manter o código
   legível.
 - Modelo do LLM configurável via variável de ambiente `REVIEWER_MODEL`
-  (padrão: `llama-3.3-70b-versatile`), para não travar o projeto a um modelo específico.
+  (padrão: `groq/compound-mini`), para não travar o projeto a um modelo específico.
 
 ## Limitações
 
@@ -128,6 +128,17 @@ Ver [`docs/rag_strategy.md`](docs/rag_strategy.md) para detalhes sobre:
 - Base de documentação (6 documentos sobre exceções, cursores, transações, performance, etc.)
 - Chunking, indexação e recuperação por keywords
 - Fontes externas e pipelines de recuperação
+
+## Documentação do Sistema
+
+Ver [`docs/sistema.md`](docs/sistema.md) para instruções completas do sistema, incluindo:
+- Objetivos da tarefa e regras de comportamento
+- Restrições importantes e padrões de resposta
+- Prompts relevantes (SYSTEM_PROMPT e prompt do LLM)
+- Arquitetura do agente (fluxo LangGraph)
+- Políticas de autonomia e integrações externas
+- Estratégia RAG e observabilidade
+- Configuração e troubleshooting
 
 ## Automação com n8n (Low-Code/No-Code)
 

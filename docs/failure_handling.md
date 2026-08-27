@@ -104,7 +104,7 @@ O agente suporta fallback entre Groq e Anthropic.
 
 | Provedor | Chave | Modelo Padrão |
 |----------|-------|---------------|
-| Groq | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
+| Groq | `GROQ_API_KEY` | `groq/compound-mini` |
 | Anthropic | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet-20240620` |
 
 #### Lógica de Fallback

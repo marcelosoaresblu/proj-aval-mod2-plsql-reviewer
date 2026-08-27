@@ -54,7 +54,7 @@ from agent.tools import get_best_practices, read_sql_file, run_static_checks
 # A chave é lida automaticamente da variável de ambiente GROQ_API_KEY.
 # Ajuste o nome do modelo conforme o disponível na sua conta — veja a
 # lista atualizada em https://console.groq.com/docs/models
-MODEL_NAME = os.getenv("REVIEWER_MODEL", "llama-3.3-70b-versatile")
+MODEL_NAME = os.getenv("REVIEWER_MODEL", "groq/compound-mini")
 
 SYSTEM_PROMPT = """Você é um revisor sênior de código PL/SQL, especializado em
 sistemas de ERP/PCP/MRP. Você recebe um trecho de código e uma lista de

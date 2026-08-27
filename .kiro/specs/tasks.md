@@ -16,7 +16,16 @@
 - [x] Implementar ferramenta de análise estática (`run_static_checks`)
 - [x] Implementar nó `read_file_node`
 - [x] Implementar nó `static_analysis_node`
-- [x] Implementar nó `llm_review_node` (integração com Claude via `langchain-anthropic`)
+- [x] Implementar nó `llm_review_node` (integração com Groq via `langchain-groq`)
+- [x] Atualizar `agent/graph.py` para usar `groq/compound-mini` como padrão
+- [x] Implementar nó `complexity_check` (análise de complexidade ciclomática)
+- [x] Implementar nó `rag_retrieval_node` (recuperação de contexto Oracle PL/SQL)
+- [x] Implementar nó `save_history_node` (persistência de histórico)
+- [x] Adicionar políticas de autonomia (`agent/autonomy.py`)
+- [x] Adicionar validação de permissões (`agent/authorization.py`)
+- [x] Implementar tratamento de falhas (timeout, retry, circuit breaker, fallback)
+- [x] Implementar logs estruturados e métricas
+- [x] Adicionar integração com n8n (`n8n_agent_wrapper.py`)
 - [x] Implementar nó `generate_report_node`
 - [x] Conectar os nós no grafo (`build_graph`) e compilar
 - [x] Implementar CLI de execução (`agent/main.py`)
@@ -54,16 +63,55 @@
 - [ ] Detectar uso de `GOTO`
 - [ ] Detectar `COMMIT` em procedures/funções (regra aprimorada)
 
+## Tarefas Concluídas (Pós-MVP)
+
+### Tarefa 8: Integração com n8n
+- [x] Criar `n8n_agent_wrapper.py` para integração com n8n via executeCommand
+- [x] Atualizar workflow n8n com caminho correto do webhook
+- [x] Criar documentação em `docs/solucao_webhook_n8n.md` e `docs/solucao_webhook_n8n_final.md`
+- [x] Adicionar instruções n8n no README.md
+
+### Tarefa 9: Atualização de Dependências
+- [x] Adicionar `pytest`, `pytest-asyncio`, `pytest-cov` ao `requirements.txt`
+- [x] Adicionar `build>=1.0.0` ao `requirements.txt`
+- [x] Atualizar pipelines CI/CD para usar dependências do requirements.txt
+
+### Tarefa 10: Correção de Configuração de Modelo
+- [x] Atualizar `agent/graph.py` para usar `groq/compound-mini` como padrão
+- [x] Atualizar `README.md` e `docs/sistema.md` com novo modelo
+- [x] Remover referências ao arquivo inexistente `check_models.py`
+
+### Tarefa 11: Melhoria de Qualidade de Código
+- [x] Reorganizar importações em `n8n_agent_wrapper.py` (padrão, terceiros, locais)
+- [x] Executar ruff check - todos os checks passando
+- [x] Documentar ciclo de refinamento de prompt em `docs/ciclo_refinamento_prompt.md`
+
+### Tarefa 12: Observabilidade e Logging
+- [x] Implementar logs estruturados (JSON) com correlation_id
+- [x] Implementar métricas (contadores, gauges, timings)
+- [x] Implementar traces com span_id e duração
+- [x] Criar documentação em `docs/observability.md` e `docs/sistema.md`
+
 ## Status Atual
 
 **Status do MVP:** ✅ Concluído
+**Status Pós-MVP:** ✅ Majoritariamente Concluído
 
+### Concluído
 - [x] Estrutura básica implementada
 - [x] Fluxo LangGraph funcional
 - [x] CLI operacional
 - [x] Documentação básica
+- [x] Integração com n8n
+- [x] Atualização de dependências (pytest, build)
+- [x] Configuração de modelo (groq/compound-mini)
+- [x] Reorganização de importações
+- [x] Ruff check 100% limpo
+- [x] Documentação de ciclo de refinamento de prompt
+- [x] Logs estruturados e métricas
 
-**Próximos passos (Pós-MVP):**
-- Implementar testes automatizados
-- Adicionar CI/CD
-- Melhorar qualidade de código (type hints, ruff, mypy)
+### Em Planejamento
+- [ ] Type hints completos para mypy
+- [ ] Cobertura de testes para mypy
+- [ ] Dockerfile para ambientes isolados
+- [ ] CD automatizado (deploy)

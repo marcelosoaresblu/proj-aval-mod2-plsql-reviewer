@@ -17,7 +17,7 @@ Erro recorrente — falha de tool (API Groq)
 FAILED tests/test_acceptance.py::TestAcceptanceIntegrationFlow::test_full_flow_with_llm
 
 groq.RateLimitError: Error code: 429
-{'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile`
+{'error': {'message': 'Rate limit reached for model `groq/compound-mini`
 in organization `org_01kvryf3knfnms69ac9w0fwjdm` service tier `on_demand`
 on tokens per day (TPD): Limit 100000, Used 96835, Requested 3789.
 Please try again in 8m59.135999999s.'}}
@@ -33,7 +33,7 @@ During task with name 'llm_review' and id '566d7582-7fe1-89b5-46b5-c5b6c159e345'
 | `Limit 100000` | 100.000 tokens/dia | Limite on_demand |
 | `Requested 3789` | 3.789 tokens | Custo desta execução |
 | `Try again in 8m59s` | ~9 minutos | Tempo restante até reset |
-| `model llama-3.3-70b-versatile` | Modelo 70B | Modelo real sendo chamado |
+| `model groq/compound-mini` | Modelo 70B | Modelo real sendo chamado |
 
 ### Causa Raiz: Decorator `@skipif` Ineficaz
 

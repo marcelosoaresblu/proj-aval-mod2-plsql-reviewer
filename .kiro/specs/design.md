@@ -200,7 +200,7 @@ python -m agent.main examples/input_example.sql [--saida relatorio.md]
 ## Integração com LLM
 
 - **API Provider**: Groq (`langchain-groq`)
-- **Modelo**: Configurável via `REVIEWER_MODEL` (padrão: `llama-3.3-70b-versatile`)
+- **Modelo**: Configurável via `REVIEWER_MODEL` (padrão: `groq/compound-mini`)
 - **Tokens máximos**: 1500 (para limitar custo)
 - **Prompt**: System prompt + código SQL + achados estáticos + contexto RAG + contexto extra
 
