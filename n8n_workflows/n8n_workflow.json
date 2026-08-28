@@ -1,9 +1,10 @@
 {
-  "name": "Revisor PL/SQL Automático",
+  "name": "Revisor PL/SQL Simples",
   "nodes": [
     {
       "parameters": {
         "path": "webhook-plsql-review",
+        "httpMethod": "POST",
         "responseMode": "onReceived",
         "options": {}
       },
@@ -24,10 +25,6 @@
             {
               "name": "output_file",
               "value": "={{ $json.body.output_file || 'relatorio_' + $json.body.file_path.split('/').pop().replace('.sql', '.md') }}"
-            },
-            {
-              "name": "notify_channel",
-              "value": "={{ $json.body.notify_channel || 'default' }}"
             }
           ]
         }
@@ -35,41 +32,15 @@
       "id": "extract-params",
       "name": "Extrair Parâmetros",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 2,
+      "typeVersion": 1,
       "position": [450, 300]
-    },
-    {
-      "parameters": {
-        "command": "python3 n8n_agent_wrapper.py {{ $json.file_path }} --output {{ $json.output_file }}",
-        "options": {
-          "timeout": 120,
-          "trimTrailingWhitespace": true
-        }
-      },
-      "id": "execute-agent",
-      "name": "Executar Agente",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [650, 300]
-    },
-    {
-      "parameters": {
-        "destination": "discord webhook",
-        "webhookUrl": "={{ $vars.discord_webhook_url }}",
-        "text": "## 📋 Relatório de Revisão PL/SQL\n\n**Arquivo:** {{ $json.file_analyzed }}\n**Data:** {{ $json.timestamp }}\n**Status:** {{ $json.success ? '✅ Sucesso' : '❌ Falha' }}\n\n{{ $json.success ? '### 📄 Resumo do Relatório\n' + $json.report_content.slice(0, 1500) + '...\n\n[📥 Ver relatório completo](attachment://' + $json.report_path + ')' : '❌ **Erro ao analisar:** ' + $json.error }}"
-      },
-      "id": "send-discord",
-      "name": "Notificar Discord",
-      "type": "n8n-nodes-base.discord",
-      "typeVersion": 1,
-      "position": [850, 300]
     },
     {
       "parameters": {
         "options": {
           "response": {
             "responseBody": "Análise concluída com sucesso!",
-            "respondWithWebhook": true
+            "respondWith": "text"
           }
         }
       },
@@ -77,7 +48,7 @@
       "name": "Responder Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [850, 450]
+      "position": [650, 300]
     }
   ],
   "connections": {
@@ -93,28 +64,6 @@
       ]
     },
     "Extrair Parâmetros": {
-      "main": [
-        [
-          {
-            "node": "Executar Agente",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Executar Agente": {
-      "main": [
-        [
-          {
-            "node": "Notificar Discord",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Notificar Discord": {
       "main": [
         [
           {
